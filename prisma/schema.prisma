@@ -1,0 +1,549 @@
+// =============================================================================
+// CRM Dra. Daniela Zilioli — modelo de dados
+//
+// Convenções:
+// - Identificadores UUIDv7 (ordenáveis no tempo).
+// - Tabelas e colunas em snake_case no banco; campos em camelCase no código.
+// - Datas/horas em `timestamptz` (UTC); datas sem hora em `date`.
+// - Telefones normalizados em E.164 (ex.: +5511987654321).
+// - Usuários da equipe NÃO são excluídos: são desativados (preserva auditoria).
+// - Restrições que o Prisma não expressa (CHECK, EXCLUDE, trigger da auditoria)
+//   estão no SQL das migrations.
+// =============================================================================
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// -----------------------------------------------------------------------------
+// Equipe, autenticação e auditoria
+// -----------------------------------------------------------------------------
+
+enum UserRole {
+  ADMIN // gestão completa, usuários e auditoria
+  PROFESSIONAL // profissional responsável: acesso clínico completo
+  RECEPTION // atendimento/recepção: sem acesso a observações clínicas
+}
+
+model User {
+  id                String    @id @default(uuid(7)) @db.Uuid
+  name              String    @db.VarChar(120)
+  /// Sempre armazenado em minúsculas.
+  email             String    @unique @db.VarChar(254)
+  passwordHash      String    @map("password_hash")
+  role              UserRole  @default(RECEPTION)
+  isActive          Boolean   @default(true) @map("is_active")
+  lastLoginAt       DateTime? @map("last_login_at") @db.Timestamptz(3)
+  passwordChangedAt DateTime  @default(now()) @map("password_changed_at") @db.Timestamptz(3)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  sessions         Session[]
+  auditLogs        AuditLog[]
+  ownedLeads       Lead[]            @relation("LeadOwner")
+  leadInteractions LeadInteraction[]
+  patientNotes     PatientNote[]
+  appointments     Appointment[]     @relation("AppointmentProfessional")
+  procedureRecords ProcedureRecord[] @relation("ProcedureRecordProfessional")
+  sentMessages     WhatsAppMessage[]
+
+  @@map("users")
+}
+
+/// Sessões no banco. O cookie guarda um token aleatório; aqui fica apenas o
+/// hash SHA-256 desse token (um vazamento do banco não permite sequestrar sessões).
+model Session {
+  id           String   @id @db.Char(64)
+  userId       String   @map("user_id") @db.Uuid
+  expiresAt    DateTime @map("expires_at") @db.Timestamptz(3)
+  lastActiveAt DateTime @default(now()) @map("last_active_at") @db.Timestamptz(3)
+  ipAddress    String?  @map("ip_address") @db.VarChar(45)
+  userAgent    String?  @map("user_agent") @db.VarChar(255)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+/// Tentativas de login, usadas para limitar força bruta por e-mail e por IP.
+model LoginAttempt {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  email     String   @db.VarChar(254)
+  ipAddress String?  @map("ip_address") @db.VarChar(45)
+  success   Boolean
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([email, createdAt])
+  @@index([ipAddress, createdAt])
+  @@map("login_attempts")
+}
+
+/// Trilha de auditoria. Somente inserção: UPDATE/DELETE são bloqueados por
+/// trigger no banco. `metadata` nunca deve conter dados pessoais ou clínicos.
+model AuditLog {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  actorId    String?  @map("actor_id") @db.Uuid
+  /// Ex.: "auth.login.success", "lead.status.update", "patient.clinical_note.view"
+  action     String   @db.VarChar(80)
+  entityType String?  @map("entity_type") @db.VarChar(40)
+  entityId   String?  @map("entity_id") @db.VarChar(64)
+  metadata   Json?
+  ipAddress  String?  @map("ip_address") @db.VarChar(45)
+  userAgent  String?  @map("user_agent") @db.VarChar(255)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([createdAt(sort: Desc)])
+  @@index([actorId, createdAt])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
+
+// -----------------------------------------------------------------------------
+// CRM e leads
+// -----------------------------------------------------------------------------
+
+enum LeadStatus {
+  NEW // Novo
+  IN_PROGRESS // Em atendimento
+  SCHEDULED // Agendado
+  CONVERTED // Convertido
+  LOST // Perdido
+}
+
+enum LeadSource {
+  INSTAGRAM
+  WHATSAPP
+  FACEBOOK
+  GOOGLE
+  WEBSITE
+  REFERRAL // indicação
+  WALK_IN // passante / presencial
+  OTHER
+}
+
+enum InteractionType {
+  NOTE
+  CALL
+  WHATSAPP
+  EMAIL
+  IN_PERSON
+  STATUS_CHANGE
+}
+
+model Lead {
+  id              String     @id @default(uuid(7)) @db.Uuid
+  name            String     @db.VarChar(120)
+  phone           String     @db.VarChar(20)
+  source          LeadSource
+  /// Complemento da origem (ex.: campanha, quem indicou).
+  sourceDetail    String?    @map("source_detail") @db.VarChar(120)
+  /// Interesse declarado pelo lead (texto livre, sem informações clínicas).
+  interest        String?    @db.VarChar(200)
+  procedureId     String?    @map("procedure_id") @db.Uuid
+  status          LeadStatus @default(NEW)
+  lostReason      String?    @map("lost_reason") @db.VarChar(200)
+  ownerId         String?    @map("owner_id") @db.Uuid
+  /// Preenchido na conversão em paciente.
+  patientId       String?    @unique @map("patient_id") @db.Uuid
+  convertedAt     DateTime?  @map("converted_at") @db.Timestamptz(3)
+  lastContactAt   DateTime?  @map("last_contact_at") @db.Timestamptz(3)
+  /// Consentimento para receber mensagens pelo WhatsApp (LGPD / política do WhatsApp).
+  whatsappOptIn   Boolean    @default(false) @map("whatsapp_opt_in")
+  whatsappOptInAt DateTime?  @map("whatsapp_opt_in_at") @db.Timestamptz(3)
+  createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  procedure     Procedure?             @relation(fields: [procedureId], references: [id], onDelete: SetNull)
+  owner         User?                  @relation("LeadOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  patient       Patient?               @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  interactions  LeadInteraction[]
+  appointments  Appointment[]
+  conversations WhatsAppConversation[]
+
+  @@index([status, createdAt])
+  @@index([createdAt])
+  @@index([phone])
+  @@map("leads")
+}
+
+model LeadInteraction {
+  id         String          @id @default(uuid(7)) @db.Uuid
+  leadId     String          @map("lead_id") @db.Uuid
+  type       InteractionType
+  content    String?         @db.Text
+  fromStatus LeadStatus?     @map("from_status")
+  toStatus   LeadStatus?     @map("to_status")
+  authorId   String?         @map("author_id") @db.Uuid
+  createdAt  DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  lead   Lead  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  author User? @relation(fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([leadId, createdAt])
+  @@map("lead_interactions")
+}
+
+// -----------------------------------------------------------------------------
+// Pacientes
+// -----------------------------------------------------------------------------
+
+model Patient {
+  id              String    @id @default(uuid(7)) @db.Uuid
+  fullName        String    @map("full_name") @db.VarChar(120)
+  preferredName   String?   @map("preferred_name") @db.VarChar(60)
+  phone           String    @db.VarChar(20)
+  email           String?   @db.VarChar(254)
+  birthDate       DateTime? @map("birth_date") @db.Date
+  whatsappOptIn   Boolean   @default(false) @map("whatsapp_opt_in")
+  whatsappOptInAt DateTime? @map("whatsapp_opt_in_at") @db.Timestamptz(3)
+  /// Pacientes não são apagados no uso normal; são arquivados.
+  archivedAt      DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  lead             Lead?
+  notes            PatientNote[]
+  appointments     Appointment[]
+  procedureRecords ProcedureRecord[]
+  protocols        PatientProtocol[]
+  returnReminders  ReturnReminder[]
+  conversations    WhatsAppConversation[]
+
+  @@index([fullName])
+  @@index([phone])
+  @@map("patients")
+}
+
+enum NoteVisibility {
+  CLINICAL // restrita a profissionais e administradores
+  ADMINISTRATIVE // visível para toda a equipe (ex.: preferências de horário)
+}
+
+model PatientNote {
+  id         String         @id @default(uuid(7)) @db.Uuid
+  patientId  String         @map("patient_id") @db.Uuid
+  authorId   String         @map("author_id") @db.Uuid
+  visibility NoteVisibility @default(CLINICAL)
+  content    String         @db.Text
+  createdAt  DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  author  User    @relation(fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([patientId, createdAt])
+  @@map("patient_notes")
+}
+
+// -----------------------------------------------------------------------------
+// Procedimentos, protocolos e retornos
+// -----------------------------------------------------------------------------
+
+model Procedure {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  name            String   @unique @db.VarChar(120)
+  category        String?  @db.VarChar(60)
+  description     String?  @db.VarChar(500)
+  /// Duração padrão usada ao agendar.
+  durationMinutes Int      @default(60) @map("duration_minutes")
+  /// Cor de exibição na agenda (#RRGGBB).
+  color           String?  @db.VarChar(7)
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  leads            Lead[]
+  protocols        Protocol[]
+  appointments     Appointment[]
+  procedureRecords ProcedureRecord[]
+  returnReminders  ReturnReminder[]
+
+  @@map("procedures")
+}
+
+enum ProtocolStepKind {
+  SESSION // sessão do procedimento
+  REVIEW // retorno de avaliação
+  MAINTENANCE // manutenção
+}
+
+/// Protocolo definido pela profissional: sequência de etapas com intervalos em dias.
+/// O sistema apenas calcula datas a partir desses intervalos; não gera recomendações clínicas.
+model Protocol {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  name        String   @unique @db.VarChar(120)
+  description String?  @db.VarChar(500)
+  procedureId String   @map("procedure_id") @db.Uuid
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  procedure        Procedure         @relation(fields: [procedureId], references: [id], onDelete: Restrict)
+  steps            ProtocolStep[]
+  patientProtocols PatientProtocol[]
+
+  @@map("protocols")
+}
+
+model ProtocolStep {
+  id         String           @id @default(uuid(7)) @db.Uuid
+  protocolId String           @map("protocol_id") @db.Uuid
+  /// Posição da etapa no protocolo (1, 2, 3...).
+  position   Int
+  kind       ProtocolStepKind
+  label      String           @db.VarChar(80)
+  /// Dias após a etapa anterior (ou após o início do protocolo, na primeira etapa).
+  offsetDays Int              @map("offset_days")
+
+  protocol         Protocol          @relation(fields: [protocolId], references: [id], onDelete: Cascade)
+  procedureRecords ProcedureRecord[]
+  returnReminders  ReturnReminder[]
+
+  @@unique([protocolId, position])
+  @@map("protocol_steps")
+}
+
+enum PatientProtocolStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+model PatientProtocol {
+  id         String                @id @default(uuid(7)) @db.Uuid
+  patientId  String                @map("patient_id") @db.Uuid
+  protocolId String                @map("protocol_id") @db.Uuid
+  startedOn  DateTime              @map("started_on") @db.Date
+  status     PatientProtocolStatus @default(ACTIVE)
+  notes      String?               @db.VarChar(500)
+  createdAt  DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  patient          Patient           @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  protocol         Protocol          @relation(fields: [protocolId], references: [id], onDelete: Restrict)
+  procedureRecords ProcedureRecord[]
+  returnReminders  ReturnReminder[]
+
+  @@index([patientId])
+  @@index([status])
+  @@map("patient_protocols")
+}
+
+/// Registro de um procedimento realizado (histórico do paciente).
+model ProcedureRecord {
+  id                String   @id @default(uuid(7)) @db.Uuid
+  patientId         String   @map("patient_id") @db.Uuid
+  procedureId       String   @map("procedure_id") @db.Uuid
+  professionalId    String?  @map("professional_id") @db.Uuid
+  appointmentId     String?  @unique @map("appointment_id") @db.Uuid
+  patientProtocolId String?  @map("patient_protocol_id") @db.Uuid
+  protocolStepId    String?  @map("protocol_step_id") @db.Uuid
+  performedAt       DateTime @map("performed_at") @db.Timestamptz(3)
+  /// Observações administrativas. Observações clínicas ficam em PatientNote.
+  notes             String?  @db.VarChar(500)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  patient         Patient          @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  procedure       Procedure        @relation(fields: [procedureId], references: [id], onDelete: Restrict)
+  professional    User?            @relation("ProcedureRecordProfessional", fields: [professionalId], references: [id], onDelete: Restrict)
+  appointment     Appointment?     @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  patientProtocol PatientProtocol? @relation(fields: [patientProtocolId], references: [id], onDelete: Restrict)
+  protocolStep    ProtocolStep?    @relation(fields: [protocolStepId], references: [id], onDelete: SetNull)
+  originReminders ReturnReminder[] @relation("ReminderSourceRecord")
+
+  @@index([patientId, performedAt])
+  @@map("procedure_records")
+}
+
+enum ReminderKind {
+  SESSION
+  REVIEW
+  MAINTENANCE
+  CUSTOM
+}
+
+enum ReminderStatus {
+  PENDING // aguardando contato/agendamento
+  SCHEDULED // retorno já agendado
+  DONE // realizado
+  DISMISSED // descartado
+}
+
+/// Lembrete de retorno futuro (gerado a partir de protocolos ou criado manualmente).
+model ReturnReminder {
+  id                String         @id @default(uuid(7)) @db.Uuid
+  patientId         String         @map("patient_id") @db.Uuid
+  procedureId       String?        @map("procedure_id") @db.Uuid
+  patientProtocolId String?        @map("patient_protocol_id") @db.Uuid
+  protocolStepId    String?        @map("protocol_step_id") @db.Uuid
+  sourceRecordId    String?        @map("source_record_id") @db.Uuid
+  appointmentId     String?        @unique @map("appointment_id") @db.Uuid
+  kind              ReminderKind
+  title             String         @db.VarChar(120)
+  dueDate           DateTime       @map("due_date") @db.Date
+  status            ReminderStatus @default(PENDING)
+  notes             String?        @db.VarChar(500)
+  resolvedAt        DateTime?      @map("resolved_at") @db.Timestamptz(3)
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  patient         Patient          @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  procedure       Procedure?       @relation(fields: [procedureId], references: [id], onDelete: SetNull)
+  patientProtocol PatientProtocol? @relation(fields: [patientProtocolId], references: [id], onDelete: Restrict)
+  protocolStep    ProtocolStep?    @relation(fields: [protocolStepId], references: [id], onDelete: SetNull)
+  sourceRecord    ProcedureRecord? @relation("ReminderSourceRecord", fields: [sourceRecordId], references: [id], onDelete: SetNull)
+  appointment     Appointment?     @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  @@index([status, dueDate])
+  @@index([patientId])
+  @@map("return_reminders")
+}
+
+// -----------------------------------------------------------------------------
+// Agenda
+// -----------------------------------------------------------------------------
+
+enum AppointmentStatus {
+  SCHEDULED // Agendado
+  CONFIRMED // Confirmado
+  COMPLETED // Concluído
+  CANCELLED // Cancelado
+}
+
+/// Agendamento de um paciente ou de um lead (ex.: avaliação antes da conversão).
+/// Conflitos de horário por profissional são impedidos no banco (EXCLUDE USING gist).
+model Appointment {
+  id                 String            @id @default(uuid(7)) @db.Uuid
+  patientId          String?           @map("patient_id") @db.Uuid
+  leadId             String?           @map("lead_id") @db.Uuid
+  professionalId     String            @map("professional_id") @db.Uuid
+  procedureId        String?           @map("procedure_id") @db.Uuid
+  startsAt           DateTime          @map("starts_at") @db.Timestamptz(3)
+  endsAt             DateTime          @map("ends_at") @db.Timestamptz(3)
+  status             AppointmentStatus @default(SCHEDULED)
+  notes              String?           @db.VarChar(500)
+  cancellationReason String?           @map("cancellation_reason") @db.VarChar(200)
+  confirmedAt        DateTime?         @map("confirmed_at") @db.Timestamptz(3)
+  completedAt        DateTime?         @map("completed_at") @db.Timestamptz(3)
+  cancelledAt        DateTime?         @map("cancelled_at") @db.Timestamptz(3)
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  patient         Patient?         @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  lead            Lead?            @relation(fields: [leadId], references: [id], onDelete: Restrict)
+  professional    User             @relation("AppointmentProfessional", fields: [professionalId], references: [id], onDelete: Restrict)
+  procedure       Procedure?       @relation(fields: [procedureId], references: [id], onDelete: SetNull)
+  procedureRecord ProcedureRecord?
+  returnReminder  ReturnReminder?
+
+  @@index([startsAt])
+  @@index([professionalId, startsAt])
+  @@index([patientId, startsAt])
+  @@index([leadId])
+  @@map("appointments")
+}
+
+// -----------------------------------------------------------------------------
+// WhatsApp (estrutura para integração futura com a API oficial)
+// -----------------------------------------------------------------------------
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum MessageType {
+  TEXT
+  TEMPLATE
+  IMAGE
+  DOCUMENT
+  AUDIO
+  VIDEO
+  OTHER
+}
+
+enum MessageStatus {
+  PENDING // criada, ainda não aceita pelo provedor
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  RECEIVED // mensagem recebida do contato
+}
+
+model WhatsAppConversation {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  /// Telefone do contato em E.164.
+  contactPhone  String    @unique @map("contact_phone") @db.VarChar(20)
+  contactName   String?   @map("contact_name") @db.VarChar(120)
+  patientId     String?   @map("patient_id") @db.Uuid
+  leadId        String?   @map("lead_id") @db.Uuid
+  lastMessageAt DateTime? @map("last_message_at") @db.Timestamptz(3)
+  /// Última mensagem recebida: define a janela de atendimento de 24h do WhatsApp.
+  lastInboundAt DateTime? @map("last_inbound_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  patient  Patient?          @relation(fields: [patientId], references: [id], onDelete: SetNull)
+  lead     Lead?             @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  messages WhatsAppMessage[]
+
+  @@index([lastMessageAt(sort: Desc)])
+  @@map("whatsapp_conversations")
+}
+
+model WhatsAppMessage {
+  id                String           @id @default(uuid(7)) @db.Uuid
+  conversationId    String           @map("conversation_id") @db.Uuid
+  direction         MessageDirection
+  type              MessageType      @default(TEXT)
+  body              String?          @db.Text
+  templateName      String?          @map("template_name") @db.VarChar(120)
+  /// ID atribuído pelo provedor; garante idempotência no processamento de webhooks.
+  providerMessageId String?          @unique @map("provider_message_id") @db.VarChar(128)
+  status            MessageStatus
+  errorCode         String?          @map("error_code") @db.VarChar(40)
+  /// Mensagem de erro já sanitizada (sem tokens nem dados pessoais).
+  errorMessage      String?          @map("error_message") @db.VarChar(300)
+  sentById          String?          @map("sent_by_id") @db.Uuid
+  sentAt            DateTime?        @map("sent_at") @db.Timestamptz(3)
+  deliveredAt       DateTime?        @map("delivered_at") @db.Timestamptz(3)
+  readAt            DateTime?        @map("read_at") @db.Timestamptz(3)
+  failedAt          DateTime?        @map("failed_at") @db.Timestamptz(3)
+  receivedAt        DateTime?        @map("received_at") @db.Timestamptz(3)
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  conversation WhatsAppConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sentBy       User?                @relation(fields: [sentById], references: [id], onDelete: Restrict)
+
+  @@index([conversationId, createdAt])
+  @@map("whatsapp_messages")
+}
+
+/// Registro de webhooks recebidos (sem o payload bruto, para minimizar dados pessoais).
+model WebhookEvent {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  provider       String    @db.VarChar(40)
+  /// Chave de deduplicação derivada do evento (reentregas do provedor).
+  eventKey       String?   @unique @map("event_key") @db.VarChar(128)
+  kind           String    @db.VarChar(60)
+  signatureValid Boolean   @map("signature_valid")
+  processedAt    DateTime? @map("processed_at") @db.Timestamptz(3)
+  errorMessage   String?   @map("error_message") @db.VarChar(300)
+  receivedAt     DateTime  @default(now()) @map("received_at") @db.Timestamptz(3)
+
+  @@index([receivedAt])
+  @@map("webhook_events")
+}

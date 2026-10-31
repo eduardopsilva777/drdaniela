@@ -1,0 +1,186 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Identidade visual — "quartzo rosé sobre grafite"
+ *
+ * Neutros com leve subtom rosé (matiz ~350) para que fundo, superfícies e
+ * acento leiam como um único material. Superfícies se diferenciam por tom,
+ * não por sombra. O rosé é sinal: ação principal, navegação ativa e foco.
+ *
+ *   Ônix ........ #0e0b0d  barra lateral (preto)
+ *   Grafite ..... #1c181a  fundo do conteúdo
+ *   Grafite + ... #262023  painéis
+ *   Grafite ++ .. #31292d  controles e realces
+ *   Porcelana ... #f3e9e5  texto principal   (14,7:1 sobre grafite)
+ *   Malva ....... #ada1a6  texto secundário  (7,0:1 sobre grafite)
+ *   Quartzo rosé  #e8abb1  acento            (9,1:1 sobre grafite)
+ */
+
+@theme inline {
+  --font-sans: var(--font-hanken), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-hanken), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-bodoni), "Bodoni 72", Didot, Georgia, serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Paleta da marca e cores de estado (uso funcional: status, alertas). */
+  --color-onyx: var(--onyx);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-rose: var(--rose);
+  --color-rose-deep: var(--rose-deep);
+  --color-champagne: var(--champagne);
+  --color-sage: var(--sage);
+  --color-lavender: var(--lavender);
+  --color-brick: var(--brick);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  --radius: 0.625rem;
+
+  --onyx: oklch(0.155 0.006 350);
+  --surface: oklch(0.252 0.01 350);
+  --surface-raised: oklch(0.292 0.012 350);
+  --rose: oklch(0.8 0.072 12);
+  --rose-deep: oklch(0.68 0.105 10);
+  --champagne: oklch(0.85 0.058 78);
+  --sage: oklch(0.79 0.068 158);
+  --lavender: oklch(0.77 0.07 300);
+  --brick: oklch(0.69 0.13 27);
+
+  --background: oklch(0.215 0.008 350);
+  --foreground: oklch(0.94 0.012 40);
+  --card: var(--surface);
+  --card-foreground: oklch(0.94 0.012 40);
+  --popover: oklch(0.27 0.011 350);
+  --popover-foreground: oklch(0.94 0.012 40);
+  --primary: var(--rose);
+  --primary-foreground: oklch(0.17 0.012 350);
+  --secondary: var(--surface-raised);
+  --secondary-foreground: oklch(0.94 0.012 40);
+  --muted: oklch(0.28 0.011 350);
+  --muted-foreground: oklch(0.72 0.016 350);
+  --accent: oklch(0.3 0.018 355);
+  --accent-foreground: oklch(0.96 0.01 40);
+  --destructive: var(--brick);
+  --border: oklch(0.94 0.012 40 / 9%);
+  --input: oklch(0.94 0.012 40 / 14%);
+  --ring: oklch(0.8 0.072 12 / 70%);
+
+  --chart-1: var(--rose);
+  --chart-2: var(--champagne);
+  --chart-3: var(--lavender);
+  --chart-4: var(--sage);
+  --chart-5: oklch(0.71 0.016 350);
+
+  --sidebar: var(--onyx);
+  --sidebar-foreground: oklch(0.86 0.014 30);
+  --sidebar-primary: var(--rose);
+  --sidebar-primary-foreground: oklch(0.17 0.012 350);
+  --sidebar-accent: oklch(0.215 0.014 355);
+  --sidebar-accent-foreground: oklch(0.96 0.01 40);
+  --sidebar-border: oklch(0.94 0.012 40 / 7%);
+  --sidebar-ring: oklch(0.8 0.072 12 / 70%);
+}
+
+/* Títulos de página e marca: didone com tamanho óptico reduzido, que engrossa
+   as hastes finas e mantém a legibilidade em fundo escuro. */
+@utility font-display {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-variation-settings: "opsz" 28;
+  letter-spacing: -0.012em;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    color-scheme: dark;
+    @apply font-sans;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "kern", "liga", "calt";
+  }
+
+  /* Evita palavras isoladas no fim de parágrafos e títulos desequilibrados. */
+  p,
+  li,
+  dd {
+    text-wrap: pretty;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  ::selection {
+    background-color: oklch(0.8 0.072 12 / 32%);
+    color: var(--foreground);
+  }
+
+  a:focus-visible {
+    @apply rounded-sm outline-2 outline-offset-2 outline-ring;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,0 +1,30 @@
+# Banco de dados PostgreSQL para DESENVOLVIMENTO LOCAL.
+# Não use estas credenciais em produção.
+name: crm-dra-daniela
+
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-crm}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-crm_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-crm_dev}
+      TZ: UTC
+      PGTZ: UTC
+    ports:
+      # Exposto apenas em localhost.
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      # A partir do PostgreSQL 18 a imagem oficial usa /var/lib/postgresql como volume.
+      - crm-db-data:/var/lib/postgresql
+      # Scripts executados apenas na primeira inicialização (cria o banco de testes).
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  crm-db-data:
