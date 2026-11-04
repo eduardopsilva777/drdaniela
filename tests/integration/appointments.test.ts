@@ -185,6 +185,41 @@ describe("reagendamento e status", () => {
     expect(reminders.map((reminder) => reminder.status)).toEqual(["CANCELLED", "PENDING"]);
   });
 
+  it("cancelamento feito no meio de um reagendamento não é desfeito (o cancelado não volta a ficar marcado)", async () => {
+    const team = await createTeam(db);
+    const patient = await createTestPatient(db, { whatsappOptIn: true });
+    const appointment = await createAppointment(db, team.asReception, input(team, { patientId: patient.id }), CLOCK);
+
+    // Logo depois de o reagendamento ler o agendamento, outra pessoa o cancela.
+    let raced = false;
+    const racingDb = db.$extends({
+      query: {
+        appointment: {
+          async findUnique({ args, query }) {
+            const result = await query(args);
+            if (!raced) {
+              raced = true;
+              await changeAppointmentStatus(db, team.asProfessional, appointment.id, { status: "CANCELLED", reason: "Paciente desistiu" }, CLOCK);
+            }
+            return result;
+          },
+        },
+      },
+    }) as unknown as typeof db;
+
+    const error = await errorOf(
+      rescheduleAppointment(racingDb, team.asReception, appointment.id, { date: "2026-11-05", startTime: "14:00", durationMinutes: 60 }, CLOCK),
+    );
+    expect(raced).toBe(true);
+    expect(error.code).toBe("concurrent_update");
+
+    const stored = await db.appointment.findUniqueOrThrow({ where: { id: appointment.id } });
+    expect(stored.status).toBe("CANCELLED");
+    expect(stored.startsAt.toISOString()).toBe("2026-11-04T12:00:00.000Z");
+    expect(await db.reminder.count({ where: { appointmentId: appointment.id, status: "PENDING" } })).toBe(0);
+    expect(await db.appointmentEvent.count({ where: { appointmentId: appointment.id, type: "RESCHEDULED" } })).toBe(0);
+  });
+
   it("reagendar respeita conflitos e a janela de datas", async () => {
     const team = await createTeam(db);
     const patient = await createTestPatient(db);

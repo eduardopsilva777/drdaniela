@@ -4,6 +4,8 @@ import type { Prisma } from "@/generated/prisma/client";
 import { phoneDigits } from "@/lib/phone";
 import type { PatientFilters } from "@/lib/validation/patients";
 import { requirePermission } from "@/server/auth/dal";
+import { openMessageBodies } from "@/server/crypto/content-cipher";
+import { getContentKeyring } from "@/server/crypto/content-key";
 import { getDb } from "@/server/db";
 import { NotFoundError } from "@/server/errors";
 
@@ -166,7 +168,7 @@ export async function getPatientInteractions(patientId: string) {
 
 export async function getPatientMessages(patientId: string) {
   await requirePermission("whatsapp:read");
-  return getDb().whatsAppConversation.findMany({
+  const conversations = await getDb().whatsAppConversation.findMany({
     where: { patientId },
     select: {
       id: true,
@@ -178,6 +180,12 @@ export async function getPatientMessages(patientId: string) {
       },
     },
   });
+  // O texto das mensagens é gravado cifrado: decifra para exibir na ficha.
+  const keyring = getContentKeyring();
+  return conversations.map((conversation) => ({
+    ...conversation,
+    messages: openMessageBodies(conversation.id, conversation.messages, keyring),
+  }));
 }
 
 /** Protocolos aplicados, retornos e lembretes do paciente (aba "Protocolos e retornos"). */

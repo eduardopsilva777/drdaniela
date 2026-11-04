@@ -148,7 +148,13 @@ export function SegmentedFilter({
   const current = searchParams.get(param) ?? defaultValue;
 
   return (
-    <div role="radiogroup" aria-label={label} className="inline-flex rounded-lg border border-border bg-card p-0.5">
+    // Muitas opções (ou rótulos longos) em telas estreitas: o grupo rola na horizontal
+    // dentro da largura disponível, sem quebrar os rótulos nem empurrar a página.
+    <div
+      role="radiogroup"
+      aria-label={label}
+      className="inline-flex max-w-full overflow-x-auto rounded-lg border border-border bg-card p-0.5"
+    >
       {options.map((option) => {
         const active = option.value === current;
         return (
@@ -159,7 +165,7 @@ export function SegmentedFilter({
             aria-checked={active}
             onClick={() => update({ [param]: option.value === defaultValue ? null : option.value })}
             className={cn(
-              "h-8 rounded-md px-3 text-sm transition-colors",
+              "h-8 shrink-0 rounded-md px-3 text-sm whitespace-nowrap transition-colors",
               active ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground",
             )}
           >

@@ -8,6 +8,7 @@ import { formDataToObject } from "@/lib/validation/common";
 import { interactionInputSchema, leadFiltersSchema, leadInputSchema, leadStatusChangeSchema } from "@/lib/validation/leads";
 import { patientInputSchema } from "@/lib/validation/patients";
 import { procedureInputSchema } from "@/lib/validation/procedures";
+import { messageContext, openMessageBodies, sealText, UNREADABLE_TEXT } from "@/server/crypto/content-cipher";
 import { decryptField, encryptField, parseEncryptionKey } from "@/server/crypto/field-encryption";
 import { parseServerEnv, productionConfigWarnings } from "@/server/env";
 
@@ -145,6 +146,31 @@ describe("cifragem de campos (AES-256-GCM)", () => {
     expect(() => parseEncryptionKey(undefined)).toThrow(/não configurada/);
     expect(() => parseEncryptionKey(Buffer.from("curta").toString("base64"))).toThrow(/32 bytes/);
     expect(parseEncryptionKey(key.toString("base64"))).toHaveLength(32);
+  });
+
+  it("decifra os textos das mensagens de uma conversa para exibição (cifrados, antigos sem cifragem e apagados)", () => {
+    const keyring = { current: key, previous: [] };
+    const conversationId = "0192f0c5-5a8e-7c4e-9a8e-3f1d2b3c4d5e";
+    const messages = [
+      { id: "a", body: sealText("Oi, tudo bem?", messageContext(conversationId), keyring) },
+      { id: "b", body: "Gravada antes da chave" },
+      { id: "c", body: null },
+      // Copiada de outra conversa: o contexto autenticado recusa.
+      { id: "d", body: sealText("De outra conversa", messageContext("outra"), keyring) },
+    ];
+    expect(openMessageBodies(conversationId, messages, keyring)).toEqual([
+      { id: "a", body: "Oi, tudo bem?" },
+      { id: "b", body: "Gravada antes da chave" },
+      { id: "c", body: null },
+      { id: "d", body: UNREADABLE_TEXT },
+    ]);
+    // Sem chave, nada cifrado vaza para a tela.
+    expect(openMessageBodies(conversationId, messages, null).map((message) => message.body)).toEqual([
+      UNREADABLE_TEXT,
+      "Gravada antes da chave",
+      null,
+      UNREADABLE_TEXT,
+    ]);
   });
 });
 

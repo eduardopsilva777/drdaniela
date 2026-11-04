@@ -6,7 +6,12 @@ import { getServerEnv } from "@/server/env";
 import { logger } from "@/server/logger";
 import { processAssistantQueue } from "@/server/services/assistant";
 import { processWebhookPayload } from "@/server/services/whatsapp";
-import { verifySubscription, verifyWebhookSignature, webhookPayloadSchema } from "@/server/whatsapp/webhook";
+import {
+  readBodyWithLimit,
+  verifySubscription,
+  verifyWebhookSignature,
+  webhookPayloadSchema,
+} from "@/server/whatsapp/webhook";
 
 /**
  * Webhook da API oficial do WhatsApp Business (Cloud API da Meta).
@@ -64,11 +69,10 @@ export async function POST(request: Request) {
   const declaredLength = Number(request.headers.get("content-length") ?? "0");
   if (declaredLength > MAX_BODY_BYTES) return Response.json({ error: "payload_too_large" }, { status: 413 });
 
-  // A assinatura é calculada pela Meta sobre os bytes exatos do corpo.
-  const rawBody = Buffer.from(await request.arrayBuffer());
-  if (rawBody.byteLength > MAX_BODY_BYTES) {
-    return Response.json({ error: "payload_too_large" }, { status: 413 });
-  }
+  // A assinatura é calculada pela Meta sobre os bytes exatos do corpo. A leitura
+  // para no limite: um corpo sem Content-Length não é acumulado inteiro na memória.
+  const rawBody = await readBodyWithLimit(request, MAX_BODY_BYTES);
+  if (!rawBody) return Response.json({ error: "payload_too_large" }, { status: 413 });
 
   if (!verifyWebhookSignature(rawBody, request.headers.get("x-hub-signature-256"), appSecret)) {
     logger.warn("whatsapp.webhook.invalid_signature");

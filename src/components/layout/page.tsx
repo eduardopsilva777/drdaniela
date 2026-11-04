@@ -22,7 +22,9 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <header className="flex flex-col gap-5 pb-8 sm:flex-row sm:items-end sm:justify-between lg:pb-10">
+    // Título e ações na mesma linha quando cabem; senão as ações descem para a linha
+    // de baixo e quebram entre si (fichas com várias ações em telas médias).
+    <header className="flex flex-col gap-5 pb-8 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between lg:pb-10">
       <div className="min-w-0 space-y-2.5">
         <h1 className="font-display text-[2.125rem] leading-[1.08] text-foreground sm:text-[2.625rem]">
           {title}
@@ -33,7 +35,7 @@ export function PageHeader({
           </div>
         ) : null}
       </div>
-      {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
+      {actions ? <div className="flex max-w-full flex-wrap items-center gap-2">{actions}</div> : null}
     </header>
   );
 }

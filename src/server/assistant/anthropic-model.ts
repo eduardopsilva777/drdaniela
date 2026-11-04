@@ -214,15 +214,22 @@ export interface AnthropicModelOptions {
   client?: Anthropic;
 }
 
+/** Novas tentativas automáticas do SDK (conexão, 408/409/429/5xx). */
+const SDK_MAX_RETRIES = 2;
+
 export class AnthropicAssistantModel implements AssistantModel {
   readonly name: string;
+  /** O SDK repete a chamada: o tempo limite vale para cada tentativa. */
+  readonly maxLatencyMs: number;
   private readonly client: Anthropic;
   private readonly options: AnthropicModelOptions;
 
   constructor(options: AnthropicModelOptions) {
     this.options = options;
     this.name = `anthropic:${options.model}`;
-    this.client = options.client ?? new Anthropic({ apiKey: options.apiKey, timeout: options.timeoutMs, maxRetries: 2 });
+    this.maxLatencyMs = options.timeoutMs * (SDK_MAX_RETRIES + 1);
+    this.client =
+      options.client ?? new Anthropic({ apiKey: options.apiKey, timeout: options.timeoutMs, maxRetries: SDK_MAX_RETRIES });
   }
 
   async interpret(input: InterpretInput): Promise<Interpretation> {

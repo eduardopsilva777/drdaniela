@@ -1,5 +1,6 @@
 /**
- * Rotação da chave de cifragem das observações dos pacientes.
+ * Rotação da DATA_ENCRYPTION_KEY: recifra observações dos pacientes, mensagens
+ * do WhatsApp e perguntas de curadoria (tudo o que essa chave protege).
  *
  * Pré-requisito: DATA_ENCRYPTION_KEY = chave NOVA e DATA_ENCRYPTION_KEY_PREVIOUS
  * = chave ANTIGA (no ambiente em que o script roda). Por padrão apenas SIMULA.
@@ -15,9 +16,18 @@ import { loadEnvConfig } from "@next/env";
 
 import { parseEncryptionKey } from "../src/server/crypto/field-encryption";
 import { createPrismaClient } from "../src/server/db/prisma";
-import { rotateNoteEncryption } from "../src/server/maintenance/rotate-note-key";
+import { rotateDataEncryption, type RotationCounts } from "../src/server/maintenance/rotate-encryption-key";
 
 loadEnvConfig(process.cwd(), process.env.NODE_ENV !== "production", { info: () => {}, error: console.error });
+
+function describe(label: string, counts: RotationCounts, apply: boolean): string {
+  return [
+    `  ${label}: ${counts.total} cifrada(s)`,
+    `    já na chave nova: ${counts.current}`,
+    `    ${apply ? "recifradas" : "seriam recifradas"}: ${counts.reencrypted}`,
+    `    ilegíveis com as duas chaves: ${counts.unreadable}${counts.unreadable > 0 ? "  ← investigue antes de descartar qualquer chave" : ""}`,
+  ].join("\n");
+}
 
 async function main() {
   const { values } = parseArgs({ options: { apply: { type: "boolean", default: false } }, strict: true });
@@ -30,12 +40,14 @@ async function main() {
 
   const db = createPrismaClient(databaseUrl);
   try {
-    const report = await rotateNoteEncryption(db, { keyring: { current, previous: [previous] }, apply: values.apply ?? false });
-    console.log(`\nRotação da chave das observações — ${report.apply ? "EXECUTADA" : "simulação (use --apply para executar)"}\n`);
-    console.log(`  Observações analisadas: ${report.total}`);
-    console.log(`  Já na chave nova:       ${report.current}`);
-    console.log(`  ${report.apply ? "Recifradas" : "Seriam recifradas"}:      ${report.reencrypted}`);
-    console.log(`  Ilegíveis com as duas chaves: ${report.unreadable}${report.unreadable > 0 ? "  ← investigue antes de descartar qualquer chave" : ""}\n`);
+    const report = await rotateDataEncryption(db, { keyring: { current, previous: [previous] }, apply: values.apply ?? false });
+    console.log(`\nRotação da DATA_ENCRYPTION_KEY — ${report.apply ? "EXECUTADA" : "simulação (use --apply para executar)"}\n`);
+    console.log(describe("Observações dos pacientes", report.byKind.notes, report.apply));
+    console.log(describe("Mensagens do WhatsApp", report.byKind.messages, report.apply));
+    console.log(describe("Perguntas de curadoria", report.byKind.knowledgeGaps, report.apply));
+    console.log(
+      `\n  Total: ${report.total} cifrado(s), ${report.reencrypted} ${report.apply ? "recifrado(s)" : "a recifrar"}, ${report.unreadable} ilegível(is)\n`,
+    );
     if (report.unreadable > 0) process.exitCode = 2;
   } finally {
     await db.$disconnect();

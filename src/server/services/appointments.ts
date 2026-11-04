@@ -111,6 +111,12 @@ function conflictError(conflict: { startsAt: Date; endsAt: Date } | null, timeZo
   return new DomainError(message, { code: "schedule_conflict", fieldErrors: { startTime: [message] } });
 }
 
+function concurrentChangeError(): DomainError {
+  return new DomainError("Este agendamento acabou de ser alterado por outra pessoa. Atualize a agenda.", {
+    code: "concurrent_update",
+  });
+}
+
 async function assertProfessional(db: DbExecutor, professionalId: string) {
   const professional = await db.user.findFirst({
     where: { id: professionalId, isActive: true, role: { in: ["PROFESSIONAL", "ADMIN"] } },
@@ -256,10 +262,13 @@ export async function updateAppointmentDetails(
           const conflict = await findConflict(tx, input.professionalId, current.startsAt, current.endsAt, appointmentId);
           if (conflict) throw conflictError(conflict, clock.timeZone);
         }
-        const appointment = await tx.appointment.update({
-          where: { id: appointmentId },
+        // Condicional: se outra pessoa cancelou ou remarcou no meio do caminho, nada é sobrescrito.
+        const updated = await tx.appointment.updateMany({
+          where: { id: appointmentId, status: current.status, startsAt: current.startsAt, endsAt: current.endsAt },
           data: { professionalId: input.professionalId, procedureId: input.procedureId ?? null, notes: input.notes ?? null },
         });
+        if (updated.count === 0) throw concurrentChangeError();
+        const appointment = await tx.appointment.findUniqueOrThrow({ where: { id: appointmentId } });
         await tx.appointmentEvent.create({ data: { appointmentId, type: "UPDATED", actorId: actor.id } });
         await recordAudit(tx, { ...auditContext(actor), action: "appointment.update", entityType: "appointment", entityId: appointmentId });
         return appointment;
@@ -296,11 +305,15 @@ export async function rescheduleAppointment(
         const conflict = await findConflict(tx, current.professionalId, startsAt, endsAt, appointmentId);
         if (conflict) throw conflictError(conflict, clock.timeZone);
 
-        const appointment = await tx.appointment.update({
-          where: { id: appointmentId },
+        // Condicional: um cancelamento (ou outra remarcação) feito no meio do caminho
+        // não é desfeito — o agendamento cancelado não volta a ficar marcado.
+        const updated = await tx.appointment.updateMany({
+          where: { id: appointmentId, status: current.status, startsAt: current.startsAt, endsAt: current.endsAt },
           // Novo horário precisa de nova confirmação do paciente.
           data: { startsAt, endsAt, status: "SCHEDULED", confirmedAt: null },
         });
+        if (updated.count === 0) throw concurrentChangeError();
+        const appointment = await tx.appointment.findUniqueOrThrow({ where: { id: appointmentId } });
         await tx.appointmentEvent.create({
           data: {
             appointmentId,
@@ -366,9 +379,7 @@ export async function changeAppointmentStatus(
 
       // Atualização condicional: protege contra mudanças simultâneas.
       const updated = await tx.appointment.updateMany({ where: { id: appointmentId, status: current.status }, data });
-      if (updated.count === 0) {
-        throw new DomainError("Este agendamento acabou de ser alterado por outra pessoa. Atualize a agenda.");
-      }
+      if (updated.count === 0) throw concurrentChangeError();
 
       await tx.appointmentEvent.create({
         data: {

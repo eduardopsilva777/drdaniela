@@ -135,3 +135,21 @@ describe("motor com Claude (SDK oficial)", () => {
     expect(content).toContain("a escolha de uma das opções listadas");
   });
 });
+
+describe("reserva da conversa conforme o pior caso do motor", () => {
+  it("a reserva cobre o tempo limite de todas as tentativas do SDK, e o prazo de execução presa vem depois dela", async () => {
+    const { assistantQueueTimings } = await import("@/server/services/assistant");
+    const model = new AnthropicAssistantModel({ model: "claude-opus-5-5", effort: "medium", timeoutMs: 30_000, client: {} as Anthropic });
+    expect(model.maxLatencyMs).toBe(90_000);
+
+    // Motor local (sem rede): valores padrão.
+    expect(assistantQueueTimings(null)).toEqual({ leaseMs: 90_000, staleMs: 300_000 });
+    expect(assistantQueueTimings({})).toEqual({ leaseMs: 90_000, staleMs: 300_000 });
+    // Padrão da IA (30 s × 3 tentativas): a reserva passa a cobrir os 90 s e a folga.
+    expect(assistantQueueTimings(model)).toEqual({ leaseMs: 150_000, staleMs: 300_000 });
+    // Maior tempo limite aceito (120 s × 3): nunca considerada presa enquanto pode estar em andamento.
+    const slowest = assistantQueueTimings({ maxLatencyMs: 360_000 });
+    expect(slowest.leaseMs).toBeGreaterThan(360_000);
+    expect(slowest.staleMs).toBeGreaterThan(slowest.leaseMs);
+  });
+});

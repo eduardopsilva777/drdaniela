@@ -59,10 +59,24 @@ export interface AssistantQueueSummary {
   skipped: number;
   retried: number;
   failed: number;
+  /** Reservadas, mas devolvidas à fila por falta de tempo neste ciclo (sem contar tentativa). */
+  released: number;
 }
 
 const LEASE_MS = 90_000;
 const STALE_RUN_MS = 5 * 60_000;
+/** Folga para o restante da execução além do motor (banco, envio pelo WhatsApp com tempo limite próprio). */
+const LEASE_MARGIN_MS = 60_000;
+
+/**
+ * Reserva da conversa e prazo para outro processador considerar uma execução
+ * presa, dimensionados pelo pior caso do motor (ex.: IA com tempo limite e
+ * novas tentativas): a reserva nunca vence com a execução ainda em andamento.
+ */
+export function assistantQueueTimings(model: Pick<AssistantModel, "maxLatencyMs"> | null): { leaseMs: number; staleMs: number } {
+  const leaseMs = Math.max(LEASE_MS, (model?.maxLatencyMs ?? 0) + LEASE_MARGIN_MS);
+  return { leaseMs, staleMs: Math.max(STALE_RUN_MS, leaseMs + LEASE_MARGIN_MS) };
+}
 const MODEL_BACKOFF_MS = [30_000, 2 * 60_000];
 const MAX_RUN_ATTEMPTS = 3;
 const HISTORY_LIMIT = 8;
@@ -70,7 +84,7 @@ const BLOCKING_STATUSES: AppointmentStatus[] = ["SCHEDULED", "CONFIRMED", "COMPL
 
 async function claimRuns(db: DbClient, now: Date, limit: number, conversationId?: string): Promise<string[]> {
   const conversationFilter = conversationId ? Prisma.sql`AND "conversation_id" = ${conversationId}::uuid` : Prisma.empty;
-  const rows = await db.$queryRaw<Array<{ id: string }>>`
+  const rows = await db.$queryRaw<Array<{ id: string; created_at: Date }>>`
     UPDATE "assistant_runs" SET "status" = 'PROCESSING', "locked_at" = ${now}, "attempts" = "attempts" + 1
     WHERE "id" IN (
       SELECT "id" FROM "assistant_runs"
@@ -81,8 +95,12 @@ async function claimRuns(db: DbClient, now: Date, limit: number, conversationId?
       LIMIT ${limit}
       FOR UPDATE SKIP LOCKED
     )
-    RETURNING "id"`;
-  return rows.map((row) => row.id);
+    RETURNING "id", "created_at"`;
+  // O RETURNING não segue o ORDER BY da subconsulta (o plano pode agrupar os ids
+  // por hash): a ordem de chegada é restabelecida aqui.
+  return rows
+    .sort((a, b) => a.created_at.getTime() - b.created_at.getTime() || a.id.localeCompare(b.id))
+    .map((row) => row.id);
 }
 
 export async function processAssistantQueue(
@@ -91,19 +109,35 @@ export async function processAssistantQueue(
   options: { now?: Date; limit?: number; conversationId?: string } = {},
 ): Promise<AssistantQueueSummary> {
   const now = options.now ?? new Date();
-  const summary: AssistantQueueSummary = { claimed: 0, completed: 0, replied: 0, skipped: 0, retried: 0, failed: 0 };
+  const startedAt = Date.now();
+  const timings = assistantQueueTimings(deps.model);
+  const summary: AssistantQueueSummary = { claimed: 0, completed: 0, replied: 0, skipped: 0, retried: 0, failed: 0, released: 0 };
 
   // Execuções presas (processo interrompido) voltam para a fila.
   await db.assistantRun.updateMany({
-    where: { status: "PROCESSING", lockedAt: { lt: new Date(now.getTime() - STALE_RUN_MS) } },
+    where: { status: "PROCESSING", lockedAt: { lt: new Date(now.getTime() - timings.staleMs) } },
     data: { status: "PENDING", lockedAt: null },
   });
 
   const ids = await claimRuns(db, now, options.limit ?? 20, options.conversationId);
   summary.claimed = ids.length;
-  for (const id of ids) {
+  for (const [index, id] of ids.entries()) {
+    // As execuções do lote rodam uma após a outra. A que não teria tempo de
+    // terminar antes de outro processador a considerar presa volta para a fila
+    // (com as seguintes), em vez de arriscar processamento em dobro.
+    const elapsedMs = Date.now() - startedAt;
+    if (elapsedMs + timings.leaseMs > timings.staleMs) {
+      const remaining = ids.slice(index);
+      const released = await db.assistantRun.updateMany({
+        where: { id: { in: remaining }, status: "PROCESSING" },
+        data: { status: "PENDING", lockedAt: null, attempts: { decrement: 1 } },
+      });
+      summary.released += released.count;
+      break;
+    }
     try {
-      await processRun(db, deps, id, now, summary);
+      // A reserva da conversa conta a partir do início desta execução (não do lote).
+      await processRun(db, deps, id, now, new Date(now.getTime() + elapsedMs), timings.leaseMs, summary);
     } catch (error) {
       logger.error("assistant.run.unexpected", { err: error });
       await db.assistantRun.update({
@@ -124,7 +158,15 @@ interface LoadedRun {
   inboundAt: Date;
 }
 
-async function processRun(db: DbClient, deps: AssistantDependencies, runId: string, now: Date, summary: AssistantQueueSummary) {
+async function processRun(
+  db: DbClient,
+  deps: AssistantDependencies,
+  runId: string,
+  now: Date,
+  leaseFrom: Date,
+  leaseMs: number,
+  summary: AssistantQueueSummary,
+) {
   const record = await db.assistantRun.findUniqueOrThrow({
     where: { id: runId },
     select: {
@@ -145,8 +187,8 @@ async function processRun(db: DbClient, deps: AssistantDependencies, runId: stri
 
   // Uma resposta por vez em cada conversa.
   const lease = await db.whatsAppConversation.updateMany({
-    where: { id: run.conversationId, OR: [{ assistantLockedUntil: null }, { assistantLockedUntil: { lt: now } }] },
-    data: { assistantLockedUntil: new Date(now.getTime() + LEASE_MS) },
+    where: { id: run.conversationId, OR: [{ assistantLockedUntil: null }, { assistantLockedUntil: { lt: leaseFrom } }] },
+    data: { assistantLockedUntil: new Date(leaseFrom.getTime() + leaseMs) },
   });
   if (lease.count === 0) {
     await db.assistantRun.update({
@@ -158,23 +200,7 @@ async function processRun(db: DbClient, deps: AssistantDependencies, runId: stri
   }
 
   try {
-    // Mensagem mais nova do mesmo contato aguardando: ela responde a todas juntas.
-    const newer = await db.assistantRun.findFirst({
-      where: {
-        conversationId: run.conversationId,
-        id: { not: run.id },
-        status: { in: ["PENDING", "PROCESSING"] },
-        // Mais nova = criada depois; no mesmo milissegundo, o id desempata (ordem estável).
-        inboundMessage: {
-          OR: [
-            { createdAt: { gt: record.inboundMessage.createdAt } },
-            { createdAt: record.inboundMessage.createdAt, id: { gt: run.inboundMessageId } },
-          ],
-        },
-      },
-      select: { id: true },
-    });
-    if (newer) {
+    if (await isSuperseded(db, run, record.inboundMessage.createdAt)) {
       await finishRun(db, run.id, now, run.inboundAt, { status: "SKIPPED", outcome: "SILENT", flags: ["superseded"] });
       summary.skipped += 1;
       return;
@@ -183,6 +209,47 @@ async function processRun(db: DbClient, deps: AssistantDependencies, runId: stri
   } finally {
     await db.whatsAppConversation.update({ where: { id: run.conversationId }, data: { assistantLockedUntil: null } });
   }
+}
+
+/**
+ * Mensagens em sequência são respondidas juntas: a execução de uma mensagem mais
+ * nova do mesmo contato responde também às anteriores ainda sem resposta (ver
+ * `loadConversationText`). Esta execução é substituída quando existe uma mais
+ * nova — pendente, em andamento, concluída ou ela mesma substituída — sem nenhuma
+ * mensagem enviada pela clínica entre as duas: é exatamente o caso em que a mais
+ * nova inclui esta mensagem no texto que responde. Com uma resposta no meio, a
+ * mais nova não a cobre, e esta segue normalmente (nunca fica sem resposta).
+ * A ordem de processamento não importa: reprocessar a mais antiga depois da mais
+ * nova não gera uma segunda resposta.
+ */
+async function isSuperseded(db: DbClient, run: LoadedRun, inboundCreatedAt: Date): Promise<boolean> {
+  const newer = await db.assistantRun.findFirst({
+    where: {
+      conversationId: run.conversationId,
+      id: { not: run.id },
+      status: { not: "FAILED" },
+      // Mais nova = criada depois; no mesmo milissegundo, o id desempata (mesma ordem de loadConversationText).
+      inboundMessage: {
+        OR: [
+          { createdAt: { gt: inboundCreatedAt } },
+          { createdAt: inboundCreatedAt, id: { gt: run.inboundMessageId } },
+        ],
+      },
+    },
+    // A primeira mais nova basta: se ela não cobre esta mensagem, nenhuma posterior cobre.
+    orderBy: [{ inboundMessage: { createdAt: "asc" } }, { inboundMessageId: "asc" }],
+    select: { inboundMessage: { select: { createdAt: true } } },
+  });
+  if (!newer) return false;
+  const repliesBetween = await db.whatsAppMessage.count({
+    where: {
+      conversationId: run.conversationId,
+      direction: "OUTBOUND",
+      body: { not: null },
+      createdAt: { gt: inboundCreatedAt, lt: newer.inboundMessage.createdAt },
+    },
+  });
+  return repliesBetween === 0;
 }
 
 async function finishRun(

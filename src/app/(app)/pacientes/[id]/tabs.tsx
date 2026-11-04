@@ -561,7 +561,7 @@ export async function MessagesTab({ context }: { context: TabContext }) {
                   message.direction === "OUTBOUND" ? "bg-rose/12 text-foreground" : "bg-surface-raised text-foreground",
                 )}
               >
-                <p className="whitespace-pre-line">{message.body}</p>
+                <p className="whitespace-pre-line">{message.body ?? "[conteúdo apagado]"}</p>
                 <p className="mt-1 text-[0.6875rem] text-muted-foreground tabular-nums">
                   {formatShortDateTime(message.createdAt, timeZone)} · {MESSAGE_STATUS_LABELS[message.status]}
                   {message.templateName ? " · modelo" : ""}

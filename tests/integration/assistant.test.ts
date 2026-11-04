@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_ASSISTANT_CONFIG, type AssistantConfig } from "@/lib/assistant-config";
 import { appointmentCreateSchema } from "@/lib/validation/appointments";
@@ -69,6 +69,13 @@ async function receive(phone: string, text: string, at: Date = NOW) {
     { kind: "message", providerMessageId: `wamid.in.${sequence}`, from: phone.slice(1), contactName: "Contato Teste", receivedAt: at, type: "text", body: text },
     "cloud_api",
   );
+}
+
+/** Mensagem nova (não reentrega), com o id da mensagem registrada. */
+async function receiveNew(phone: string, text: string, at: Date = NOW) {
+  const result = await receive(phone, text, at);
+  if (result.duplicate) throw new Error("Mensagem tratada como reentrega no teste.");
+  return result;
 }
 
 async function replies(conversationId: string) {
@@ -165,6 +172,50 @@ describe("atendimento pelo assistente (webhook → fila → resposta)", () => {
     const runs = await db.assistantRun.findMany({ orderBy: { createdAt: "asc" } });
     expect(runs.map((run) => run.status)).toEqual(["SKIPPED", "COMPLETED"]);
     expect(runs[0]!.flags).toContain("superseded");
+    expect(provider.sent).toHaveLength(1);
+    expect(provider.sent[0]!.body).toContain("R$ 150,00");
+  });
+
+  it("a execução mais antiga processada depois da mais nova não responde de novo (ordem de processamento não importa)", async () => {
+    const team = await createTeam(db);
+    await publishPricingAnswer(team);
+    const provider = new RecordingProvider();
+    const phone = uniquePhone();
+    const first = await receiveNew(phone, "oi");
+    await receive(phone, "quanto custa a avaliação?");
+    // A primeira ficou para depois (ex.: conversa reservada por outro processador).
+    await db.assistantRun.update({ where: { inboundMessageId: first.messageId! }, data: { nextAttemptAt: minutes(10) } });
+
+    await processAssistantQueue(db, dependencies(provider), { now: minutes(1) });
+    expect(provider.sent).toHaveLength(1);
+    expect(provider.sent[0]!.body).toContain("R$ 150,00");
+
+    await processAssistantQueue(db, dependencies(provider), { now: minutes(11) });
+    const olderRun = await db.assistantRun.findUniqueOrThrow({ where: { inboundMessageId: first.messageId! } });
+    expect(olderRun).toMatchObject({ status: "SKIPPED", outcome: "SILENT" });
+    expect(olderRun.flags).toContain("superseded");
+    expect(provider.sent).toHaveLength(1);
+  });
+
+  it("mensagem com uma resposta da clínica no meio não é dada como respondida pela mais nova", async () => {
+    const team = await createTeam(db);
+    await publishPricingAnswer(team);
+    const provider = new RecordingProvider();
+    const phone = uniquePhone();
+    const first = await receiveNew(phone, "quanto custa a avaliação?");
+    // Resposta enviada depois da primeira mensagem (ex.: a uma mensagem anterior), antes da segunda.
+    await db.whatsAppMessage.create({
+      data: { conversationId: first.conversationId, direction: "OUTBOUND", origin: "STAFF", body: "Já te respondo!", provider: "cloud_api", status: "SENT" },
+    });
+    const second = await receiveNew(phone, "obrigada");
+    // A mais nova ainda aguarda: mesmo assim ela não cobre a primeira (há uma resposta entre as duas).
+    await db.assistantRun.update({ where: { inboundMessageId: second.messageId! }, data: { nextAttemptAt: minutes(10) } });
+
+    await processAssistantQueue(db, dependencies(provider), { now: minutes(1) });
+    expect(await db.assistantRun.findUniqueOrThrow({ where: { inboundMessageId: first.messageId! } })).toMatchObject({
+      status: "COMPLETED",
+      outcome: "ANSWERED",
+    });
     expect(provider.sent).toHaveLength(1);
     expect(provider.sent[0]!.body).toContain("R$ 150,00");
   });
@@ -311,6 +362,44 @@ describe("captação, qualificação e agendamento", () => {
   });
 });
 
+describe("tempo de processamento do lote", () => {
+  it("execução que não terminaria antes de ser considerada presa volta para a fila (sem processamento em dobro)", async () => {
+    // Relógio do lote: o motor "lento" consome 4 minutos por mensagem.
+    const realNow = Date.now.bind(Date);
+    let offsetMs = 0;
+    const clock = vi.spyOn(Date, "now").mockImplementation(() => realNow() + offsetMs);
+    try {
+      const rules = new RulesAssistantModel();
+      const slow: AssistantModel = {
+        name: "lento",
+        interpret: async (input) => {
+          offsetMs += 4 * 60_000;
+          return rules.interpret(input);
+        },
+      };
+      const provider = new RecordingProvider();
+      const first = await receiveNew(uniquePhone(), "oi");
+      const second = await receiveNew(uniquePhone(), "oi");
+
+      const summary = await processAssistantQueue(db, dependencies(provider, slow), { now: minutes(1) });
+      // 4 min já passados + 90 s de reserva > 5 min: a segunda não começa neste ciclo.
+      expect(summary).toMatchObject({ claimed: 2, completed: 1, released: 1 });
+      expect(await db.assistantRun.findUniqueOrThrow({ where: { inboundMessageId: first.messageId } })).toMatchObject({ status: "COMPLETED" });
+      expect(await db.assistantRun.findUniqueOrThrow({ where: { inboundMessageId: second.messageId } })).toMatchObject({
+        status: "PENDING",
+        attempts: 0,
+        lockedAt: null,
+      });
+
+      // No ciclo seguinte ela é processada normalmente.
+      expect(await processAssistantQueue(db, dependencies(provider, slow), { now: minutes(2) })).toMatchObject({ claimed: 1, completed: 1 });
+      expect(provider.sent).toHaveLength(2);
+    } finally {
+      clock.mockRestore();
+    }
+  });
+});
+
 describe("encaminhamento para a equipe", () => {
   it("pedido de atendente: equipe assume, assistente silencia e a resposta da equipe conclui a tarefa", async () => {
     const team = await createTeam(db);
@@ -400,6 +489,24 @@ describe("regras do WhatsApp no envio automático", () => {
     const [sent] = await replies(conversationId);
     expect(sent).toMatchObject({ status: "SENT", attempts: 2 });
     expect(provider.sent).toHaveLength(1);
+  });
+
+  it("reenvio pendente com o texto apagado (ou ilegível) não envia nada ao contato", async () => {
+    const team = await createTeam(db);
+    const provider = new RecordingProvider();
+    provider.failNext = "retryable";
+    const { conversationId } = await receive(uniquePhone(), "oi");
+    await processAssistantQueue(db, dependencies(provider), { now: minutes(1) });
+    expect((await replies(conversationId))[0]).toMatchObject({ status: "PENDING", attempts: 1 });
+
+    // Pedido de eliminação do titular antes do reenvio.
+    await eraseConversationContent(db, team.asAdmin, conversationId);
+    expect(await retryAutomatedMessages(db, provider, minutes(2), keyring)).toMatchObject({ retried: 1, sent: 0, failed: 1 });
+    expect(provider.sent).toHaveLength(0);
+    expect(await db.whatsAppMessage.findFirstOrThrow({ where: { direction: "OUTBOUND" } })).toMatchObject({
+      status: "FAILED",
+      errorCode: "content_unavailable",
+    });
   });
 });
 

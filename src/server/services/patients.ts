@@ -6,7 +6,8 @@ import { dateKeyToDbDate } from "@/lib/datetime";
 import type { InteractionInput } from "@/lib/validation/leads";
 import type { PatientInput, PatientNoteInput } from "@/lib/validation/patients";
 import { recordAudit } from "@/server/audit";
-import { decryptWithKeyring, encryptField, noteContext, type Keyring } from "@/server/crypto/field-encryption";
+import { openMessageBodies } from "@/server/crypto/content-cipher";
+import { decryptWithKeyring, encryptField, noteContext, toKeyring, type Keyring } from "@/server/crypto/field-encryption";
 import type { DbClient, DbExecutor } from "@/server/db/prisma";
 import { DomainError, NotFoundError } from "@/server/errors";
 
@@ -312,9 +313,11 @@ export async function readPatientNotes(db: DbClient, actor: Actor, patientId: st
 
 /**
  * Exportação dos dados do paciente (direito de acesso — LGPD art. 18).
- * Inclui todo o histórico vinculado; a operação é auditada.
+ * Inclui todo o histórico vinculado, com observações e mensagens decifradas;
+ * a operação é auditada. Sem chave configurada (`keys` nulo), a exportação
+ * continua possível e os conteúdos cifrados aparecem como ilegíveis.
  */
-export async function exportPatientData(db: DbClient, actor: Actor, patientId: string, keys: Buffer | Keyring) {
+export async function exportPatientData(db: DbClient, actor: Actor, patientId: string, keys: Buffer | Keyring | null) {
   assertPermission(actor, "patients:export");
   const patient = await db.patient.findUnique({
     where: { id: patientId },
@@ -325,7 +328,7 @@ export async function exportPatientData(db: DbClient, actor: Actor, patientId: s
       procedureRecords: { orderBy: { performedAt: "asc" }, select: { performedAt: true, notes: true, procedure: { select: { name: true } } } },
       protocols: { select: { startedOn: true, status: true, notes: true, protocol: { select: { name: true } } } },
       returns: { orderBy: { dueDate: "asc" }, select: { title: true, dueDate: true, status: true, notes: true } },
-      conversations: { select: { contactPhone: true, messages: { orderBy: { createdAt: "asc" }, select: { direction: true, body: true, status: true, createdAt: true } } } },
+      conversations: { select: { id: true, contactPhone: true, messages: { orderBy: { createdAt: "asc" }, select: { direction: true, body: true, status: true, createdAt: true } } } },
       notes: { orderBy: { createdAt: "asc" }, select: { visibility: true, content: true, createdAt: true } },
     },
   });
@@ -333,18 +336,28 @@ export async function exportPatientData(db: DbClient, actor: Actor, patientId: s
 
   await recordAudit(db, { ...auditContext(actor), action: "patient.export", entityType: "patient", entityId: patientId });
 
-  const { notes, ...rest } = patient;
+  const keyring = keys ? toKeyring(keys) : null;
+  const { notes, conversations, ...rest } = patient;
   return {
     exportedAt: new Date().toISOString(),
     exportedBy: actor.name,
     patient: {
       ...rest,
+      // O texto das mensagens é gravado cifrado (contexto: a conversa).
+      conversations: conversations.map(({ id, messages, ...conversation }) => ({
+        ...conversation,
+        messages: openMessageBodies(id, messages, keyring),
+      })),
       notes: notes.map((note) => {
         let content: string;
-        try {
-          content = decryptWithKeyring(note.content, keys, noteContext(patientId)).plaintext;
-        } catch {
-          content = "[ilegível com a chave atual]";
+        if (!keyring) {
+          content = "[ilegível: chave de cifragem não configurada]";
+        } else {
+          try {
+            content = decryptWithKeyring(note.content, keyring, noteContext(patientId)).plaintext;
+          } catch {
+            content = "[ilegível com a chave atual]";
+          }
         }
         return { visibility: note.visibility, createdAt: note.createdAt, content };
       }),

@@ -80,8 +80,6 @@ export const serverEnvSchema = z
     WHATSAPP_TEMPLATE_LANGUAGE: z.string().default("pt_BR"),
     WHATSAPP_TEMPLATE_RETURN_REMINDER: optionalSecret(1),
     WHATSAPP_TEMPLATE_APPOINTMENT_REMINDER: optionalSecret(1),
-    /** Mensagens do WhatsApp com mais de N dias têm o texto apagado (0 = mantém; decisão jurídica da clínica). */
-    WHATSAPP_MESSAGE_RETENTION_DAYS: z.coerce.number().int().min(0).max(3650).default(0),
 
     /**
      * Motor do assistente virtual do WhatsApp:

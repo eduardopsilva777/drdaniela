@@ -4,7 +4,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { phoneDigits } from "@/lib/phone";
 import type { INBOX_FILTERS } from "@/lib/validation/assistant";
 import { requirePermission } from "@/server/auth/dal";
-import { messageContext, openText } from "@/server/crypto/content-cipher";
+import { openMessageBodies } from "@/server/crypto/content-cipher";
 import { getContentKeyring } from "@/server/crypto/content-key";
 import { getDb } from "@/server/db";
 import { NotFoundError } from "@/server/errors";
@@ -73,10 +73,7 @@ export async function listConversations(search: string | undefined, filter: Inbo
     items: conversations.map((conversation) => ({
       ...conversation,
       awaitingTeam: conversation._count.tasks > 0,
-      messages: conversation.messages.map((message) => ({
-        ...message,
-        body: openText(message.body, messageContext(conversation.id), keyring),
-      })),
+      messages: openMessageBodies(conversation.id, conversation.messages, keyring),
     })),
   };
 }
@@ -142,9 +139,8 @@ export async function getConversationDetail(id: string) {
 
   return {
     ...conversation,
-    messages: [...conversation.messages].reverse().map((message) => ({
+    messages: openMessageBodies(conversation.id, [...conversation.messages].reverse(), keyring).map((message) => ({
       ...message,
-      body: openText(message.body, messageContext(conversation.id), keyring),
       sources: (message.replyOfRun?.sourceEntryIds ?? []).map((sourceId) => sourceTitles.get(sourceId) ?? "Entrada removida"),
       reported: message.knowledgeGaps.length > 0,
     })),

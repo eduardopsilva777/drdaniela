@@ -91,6 +91,12 @@ export interface Interpretation {
 export interface AssistantModel {
   /** "rules" ou "anthropic:<modelo>" — registrado em cada execução. */
   readonly name: string;
+  /**
+   * Pior caso de duração de `interpret` (tempo limite × tentativas). A reserva
+   * da conversa dura pelo menos isso, para não expirar com a execução ainda em
+   * andamento. Ausente: motor local, sem chamada de rede.
+   */
+  readonly maxLatencyMs?: number;
   interpret(input: InterpretInput): Promise<Interpretation>;
 }
 

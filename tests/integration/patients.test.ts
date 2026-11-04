@@ -2,6 +2,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
 import { patientInputSchema } from "@/lib/validation/patients";
 import { AuthorizationError } from "@/server/auth/errors";
+import { messageContext, sealText, UNREADABLE_TEXT } from "@/server/crypto/content-cipher";
 import { DomainError } from "@/server/errors";
 import {
   addPatientNote,
@@ -178,5 +179,51 @@ describe("exportação de dados (LGPD)", () => {
     expect(data.patient.notes).toEqual([expect.objectContaining({ content: "Clínica", visibility: "CLINICAL" })]);
     expect(data.patient.interactions).toHaveLength(1);
     expect(await db.auditLog.count({ where: { action: "patient.export", entityId: patient.id } })).toBe(1);
+  });
+
+  it("entrega as mensagens do WhatsApp decifradas (o texto é gravado cifrado)", async () => {
+    const team = await createTeam(db);
+    const patient = await createTestPatient(db);
+    const conversation = await db.whatsAppConversation.create({ data: { contactPhone: patient.phone, patientId: patient.id } });
+    const sealed = sealText("Quero remarcar meu horário", messageContext(conversation.id), { current: key, previous: [] });
+    await db.whatsAppMessage.create({
+      data: { conversationId: conversation.id, direction: "INBOUND", origin: "CONTACT", body: sealed, provider: "cloud_api", status: "RECEIVED" },
+    });
+    await db.whatsAppMessage.create({
+      data: { conversationId: conversation.id, direction: "OUTBOUND", origin: "STAFF", body: null, provider: "cloud_api", status: "SENT" },
+    });
+
+    const data = await exportPatientData(db, team.asAdmin, patient.id, key);
+    expect(data.patient.conversations).toEqual([
+      {
+        contactPhone: patient.phone,
+        messages: [
+          expect.objectContaining({ direction: "INBOUND", body: "Quero remarcar meu horário" }),
+          expect.objectContaining({ direction: "OUTBOUND", body: null }),
+        ],
+      },
+    ]);
+    expect(JSON.stringify(data)).not.toContain(sealed);
+  });
+
+  it("funciona sem chave de cifragem configurada: conteúdos cifrados saem como ilegíveis", async () => {
+    const team = await createTeam(db);
+    const patient = await createTestPatient(db);
+    await addPatientNote(db, team.asProfessional, patient.id, { visibility: "ADMINISTRATIVE", content: "Prefere manhãs" }, key);
+    const conversation = await db.whatsAppConversation.create({ data: { contactPhone: patient.phone, patientId: patient.id } });
+    await db.whatsAppMessage.create({
+      data: {
+        conversationId: conversation.id,
+        direction: "INBOUND",
+        origin: "CONTACT",
+        body: sealText("Oi", messageContext(conversation.id), { current: key, previous: [] }),
+        provider: "cloud_api",
+        status: "RECEIVED",
+      },
+    });
+
+    const data = await exportPatientData(db, team.asAdmin, patient.id, null);
+    expect(data.patient.notes).toEqual([expect.objectContaining({ content: "[ilegível: chave de cifragem não configurada]" })]);
+    expect(data.patient.conversations[0]!.messages[0]!.body).toBe(UNREADABLE_TEXT);
   });
 });

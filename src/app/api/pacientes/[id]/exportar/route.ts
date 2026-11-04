@@ -3,7 +3,7 @@ import { unstable_rethrow } from "next/navigation";
 import { uuidSchema } from "@/lib/validation/common";
 import { requirePermission } from "@/server/auth/dal";
 import { AuthorizationError } from "@/server/auth/errors";
-import { getNoteKeyring } from "@/server/crypto/note-key";
+import { getContentKeyring } from "@/server/crypto/content-key";
 import { getDb } from "@/server/db";
 import { NotFoundError } from "@/server/errors";
 import { logger } from "@/server/logger";
@@ -36,7 +36,8 @@ export async function GET(request: Request, context: RouteContext<"/api/paciente
       getDb(),
       { id: user.id, name: user.name, role: user.role, ...meta },
       id,
-      getNoteKeyring(),
+      // Nula sem DATA_ENCRYPTION_KEY: a exportação sai assim mesmo, com os conteúdos cifrados marcados como ilegíveis.
+      getContentKeyring(),
     );
     return new Response(JSON.stringify(data, null, 2), {
       headers: {

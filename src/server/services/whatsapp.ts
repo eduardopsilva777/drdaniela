@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import type { Prisma } from "@/generated/prisma/client";
 import type { ConversationMode, MessageOrigin } from "@/generated/prisma/enums";
 import { recordAudit } from "@/server/audit";
-import { messageContext, openText, sealText } from "@/server/crypto/content-cipher";
+import { messageContext, openText, sealText, UNREADABLE_TEXT } from "@/server/crypto/content-cipher";
 import { getContentKeyring } from "@/server/crypto/content-key";
 import type { Keyring } from "@/server/crypto/field-encryption";
 import type { DbClient, DbExecutor } from "@/server/db/prisma";
@@ -363,7 +363,23 @@ export async function retryAutomatedMessages(
       summary.failed += 1;
       continue;
     }
-    const body = openText(message.body, messageContext(message.conversationId), keyring) ?? "";
+    const body = openText(message.body, messageContext(message.conversationId), keyring);
+    if (!body || body === UNREADABLE_TEXT) {
+      // Texto apagado (pedido do titular) ou ilegível com a chave atual: nunca envia
+      // uma mensagem vazia nem o aviso interno de conteúdo indisponível ao contato.
+      await db.whatsAppMessage.update({
+        where: { id: message.id },
+        data: {
+          status: "FAILED",
+          failedAt: now,
+          nextAttemptAt: null,
+          errorCode: "content_unavailable",
+          errorMessage: "Texto da mensagem indisponível (apagado ou ilegível com a chave atual); não foi reenviada.",
+        },
+      });
+      summary.failed += 1;
+      continue;
+    }
     const outcome = await attemptTextSend(db, provider, message.id, message.conversation.contactPhone, body, message.attempts + 1, now);
     if (outcome === "FAILED") summary.failed += 1;
     else if (outcome !== "PENDING") summary.sent += 1;

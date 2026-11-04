@@ -42,3 +42,17 @@ export function openText(stored: string | null, context: string, keyring: Keyrin
     return UNREADABLE_TEXT;
   }
 }
+
+/**
+ * Mensagens de uma conversa com o texto decifrado para exibição ou exportação
+ * (`null` continua indicando conteúdo apagado). Toda leitura de `body` fora do
+ * processamento interno deve passar por aqui — o valor gravado é cifrado.
+ */
+export function openMessageBodies<T extends { body: string | null }>(
+  conversationId: string,
+  messages: readonly T[],
+  keyring: Keyring | null,
+): T[] {
+  const context = messageContext(conversationId);
+  return messages.map((message) => ({ ...message, body: openText(message.body, context, keyring) }));
+}

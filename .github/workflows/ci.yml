@@ -1,0 +1,79 @@
+# Verificação contínua: lint, tipos, testes (unitários e de integração com
+# PostgreSQL real) e build de produção. NÃO faz deploy e não usa segredos: o
+# banco é um serviço descartável deste job e a chave de cifragem é gerada a cada
+# execução.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        # Mesma versão do docker-compose.yml (desenvolvimento).
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: crm
+          POSTGRES_PASSWORD: crm_ci_password
+          POSTGRES_DB: crm_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U crm -d crm_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      # Os testes de integração APAGAM o banco de TEST_DATABASE_URL (nome com "test",
+      # diferente de DATABASE_URL — travas em tests/integration/test-database-guard.ts).
+      TEST_DATABASE_URL: postgresql://crm:crm_ci_password@localhost:5432/crm_test?schema=public
+      DATABASE_URL: postgresql://crm:crm_ci_password@localhost:5432/crm_ci_unused?schema=public
+      APP_TIMEZONE: America/Sao_Paulo
+      WHATSAPP_PROVIDER: development
+      NEXT_TELEMETRY_DISABLED: "1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Chave de cifragem descartável (somente para os testes)
+        run: echo "DATA_ENCRYPTION_KEY=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
+
+      - name: Dependências
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tipos
+        run: npm run typecheck
+
+      - name: Testes unitários
+        run: npm test
+
+      - name: Testes de integração (PostgreSQL)
+        run: npm run test:integration
+
+      - name: Build de produção
+        run: npm run build

@@ -20,6 +20,29 @@ export function verifyWebhookSignature(rawBody: string | Buffer, header: string 
   return timingSafeEqual(Buffer.from(received.toLowerCase(), "hex"), Buffer.from(expected, "hex"));
 }
 
+/**
+ * Lê o corpo bruto até `maxBytes`. Devolve `null` assim que o limite é passado,
+ * sem acumular o restante — vale também para corpos sem Content-Length
+ * (transferência em partes), que `arrayBuffer()` leria inteiros na memória.
+ */
+export async function readBodyWithLimit(request: Request, maxBytes: number): Promise<Buffer | null> {
+  if (!request.body) return Buffer.alloc(0);
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > maxBytes) {
+      await reader.cancel().catch(() => {});
+      return null;
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks, size);
+}
+
 /** Verificação do endpoint (GET) feita pela Meta ao configurar o webhook. */
 export function verifySubscription(
   params: URLSearchParams,

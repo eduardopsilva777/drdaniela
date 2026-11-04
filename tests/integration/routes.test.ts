@@ -110,6 +110,32 @@ describe("webhook do WhatsApp", () => {
     expect(unknown.status).toBe(200);
     expect(await unknown.json()).toEqual({ ignored: true });
   });
+
+  it("corpo acima de 1 MB sem Content-Length é recusado sem ser lido inteiro", async () => {
+    const chunk = new Uint8Array(64 * 1024);
+    let pulled = 0;
+    // 64 MB em partes, sem Content-Length (transferência em partes).
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulled += 1;
+        if (pulled > 1024) controller.close();
+        else controller.enqueue(chunk);
+      },
+    });
+    const request = new Request("http://localhost/api/webhooks/whatsapp", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-hub-signature-256": `sha256=${"0".repeat(64)}` },
+      body,
+      duplex: "half",
+    } as RequestInit);
+    expect(request.headers.get("content-length")).toBeNull();
+
+    const response = await webhook.POST(request);
+    expect(response.status).toBe(413);
+    // Parou logo depois do limite (1 MB = 16 partes de 64 KB), sem consumir os 64 MB.
+    expect(pulled).toBeLessThan(32);
+    expect(await db.webhookEvent.count()).toBe(0);
+  });
 });
 
 describe("exportação de dados do paciente", () => {
