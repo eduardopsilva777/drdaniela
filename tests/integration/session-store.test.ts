@@ -37,6 +37,7 @@ describe("sessões no banco", () => {
       name: "Ana Teste",
       email: user.email,
       role: "PROFESSIONAL",
+      mustChangePassword: false,
     });
   });
 

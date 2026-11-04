@@ -37,10 +37,19 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
   return (await getCurrentSession())?.user ?? null;
 }
 
-/** Exige sessão válida; caso contrário redireciona para o login. */
-export async function requireUser(): Promise<SessionUser> {
+export const PASSWORD_CHANGE_PATH = "/conta/senha";
+
+/**
+ * Exige sessão válida; caso contrário redireciona para o login. Com senha
+ * provisória pendente, toda página e operação leva à troca de senha — exceto
+ * a própria tela de troca (`allowPendingPasswordChange`).
+ */
+export async function requireUser(
+  options: { allowPendingPasswordChange?: boolean } = {},
+): Promise<SessionUser> {
   const session = await getCurrentSession();
   if (!session) redirect("/login");
+  if (session.user.mustChangePassword && !options.allowPendingPasswordChange) redirect(PASSWORD_CHANGE_PATH);
   return session.user;
 }
 

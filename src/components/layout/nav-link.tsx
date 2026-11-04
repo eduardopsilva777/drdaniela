@@ -1,17 +1,22 @@
 "use client";
 
 import {
+  Bot,
   CalendarDays,
   CalendarSync,
   LayoutGrid,
+  ListTodo,
   MessageCircle,
   ShieldCheck,
+  Sparkles,
+  UserRoundCog,
   UserRoundPlus,
   UsersRound,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Suspense } from "react";
 
 import {
   SidebarMenuBadge,
@@ -26,8 +31,12 @@ const ICONS: Record<ModuleIcon, LucideIcon> = {
   leads: UserRoundPlus,
   patients: UsersRound,
   agenda: CalendarDays,
+  procedures: Sparkles,
   protocols: CalendarSync,
   whatsapp: MessageCircle,
+  assistant: Bot,
+  tasks: ListTodo,
+  team: UserRoundCog,
   audit: ShieldCheck,
 };
 
@@ -38,11 +47,28 @@ export interface NavLinkProps {
   availability: ModuleAvailability;
 }
 
-export function NavLink({ href, label, icon, availability }: NavLinkProps) {
+/**
+ * Item da navegação. O destaque do item ativo depende da URL: em rotas com
+ * parâmetro dinâmico ela só é conhecida na requisição, então o item é
+ * pré-renderizado sem destaque e o estado ativo chega por streaming.
+ */
+export function NavLink(props: NavLinkProps) {
+  return (
+    <Suspense fallback={<NavLinkItem {...props} isActive={false} />}>
+      <ActiveNavLink {...props} />
+    </Suspense>
+  );
+}
+
+function ActiveNavLink(props: NavLinkProps) {
   const pathname = usePathname();
+  const isActive = pathname === props.href || pathname.startsWith(`${props.href}/`);
+  return <NavLinkItem {...props} isActive={isActive} />;
+}
+
+function NavLinkItem({ href, label, icon, availability, isActive }: NavLinkProps & { isActive: boolean }) {
   const { isMobile, setOpenMobile } = useSidebar();
   const Icon = ICONS[icon];
-  const isActive = pathname === href || pathname.startsWith(`${href}/`);
   const planned = availability.status === "planned";
 
   return (

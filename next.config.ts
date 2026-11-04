@@ -44,6 +44,11 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
   poweredByHeader: false,
+  logging: {
+    // Em desenvolvimento, o Next.js imprime os argumentos de cada Server Action
+    // no terminal (mensagens, buscas por nome, motivos). Desligado: dados de saúde.
+    serverFunctions: false,
+  },
   turbopack: {
     rules: {
       "*.css": {

@@ -2,6 +2,8 @@ import { execSync } from "node:child_process";
 
 import { loadEnvConfig } from "@next/env";
 
+import { assertDisposableTestDatabase } from "./test-database-guard";
+
 /**
  * Prepara o banco de TESTES: valida que ele é diferente do banco de
  * desenvolvimento (os testes apagam dados) e aplica todas as migrations.
@@ -18,6 +20,7 @@ export default function setup() {
   if (testUrl === process.env.DATABASE_URL) {
     throw new Error("TEST_DATABASE_URL deve apontar para um banco diferente de DATABASE_URL.");
   }
+  assertDisposableTestDatabase(testUrl);
 
   process.env.DATABASE_URL = testUrl;
   execSync("npx prisma migrate deploy", {

@@ -22,6 +22,8 @@ export interface SessionUser {
   name: string;
   email: string;
   role: UserRole;
+  /** Senha provisória (criada ou redefinida pela administração): troca obrigatória. */
+  mustChangePassword: boolean;
 }
 
 export interface ValidatedSession {
@@ -81,7 +83,7 @@ export async function validateSessionToken(
       id: true,
       expiresAt: true,
       lastActiveAt: true,
-      user: { select: { id: true, name: true, email: true, role: true, isActive: true } },
+      user: { select: { id: true, name: true, email: true, role: true, isActive: true, mustChangePassword: true } },
     },
   });
 

@@ -1,40 +1,49 @@
 # CRM — Dra. Daniela Zilioli
 
-Sistema interno de gestão da clínica de estética: leads, pacientes, agenda, protocolos de retorno e, futuramente, mensagens pelo WhatsApp Business.
+Sistema interno da clínica de estética: leads e funil comercial, pacientes, agenda, protocolos de tratamento com retornos e lembretes, conversas de WhatsApp (preparadas para a API oficial) e indicadores — com segurança e LGPD desde a base.
 
-## Situação do projeto
+## Situação dos módulos
 
-O sistema é entregue em etapas. Uma etapa só é marcada como concluída quando funciona de ponta a ponta — telas apenas ilustrativas não contam.
+Um módulo só aparece como disponível quando funciona de ponta a ponta (telas, regras no servidor, banco e testes). Nada aqui é ilustrativo.
 
-| Etapa | Escopo | Situação |
-| --- | --- | --- |
-| 1 | Fundação: estrutura, design system, layout, banco de dados, autenticação, perfis de acesso, auditoria | **Concluída** |
-| 2 | Leads e funil comercial | Planejada |
-| 3 | Pacientes (ficha, históricos, observações clínicas restritas) | Planejada |
-| 4 | Agenda (visões diária/semanal, status, conflitos) | Planejada |
-| 5 | Protocolos e retornos | Planejada |
-| 6 | Indicadores do dashboard | Planejada |
-| 7 | WhatsApp (arquitetura para a API oficial) | Planejada |
-| 8 | LGPD e gestão da equipe | Planejada |
+| Etapa | Módulo | Situação | O que funciona |
+| --- | --- | --- | --- |
+| 1 | Fundação | **Concluída** | Login, sessões no banco, perfis de acesso (RBAC), auditoria somente inserção, cabeçalhos de segurança, layout |
+| 2 | Leads e funil | **Concluída** | Cadastro sem duplicidade por telefone, funil Kanban com arrastar e soltar (e teclado), lista com filtros/ordenação/paginação, interações e próximas ações, motivo de perda, conversão transacional em paciente |
+| 3 | Pacientes | **Concluída** | Cadastro mínimo com consentimentos datados, ficha com abas (resumo, agenda, procedimentos, protocolos e retornos, mensagens, interações, observações), observações cifradas com acesso clínico restrito e auditado, exportação de dados (LGPD) |
+| 4 | Agenda | **Concluída** | Visões dia/semana/mês, criação por clique no horário livre, filtros por profissional e status, confirmar/concluir/cancelar/não compareceu, reagendamento com histórico, remarcação de cancelados, conflitos bloqueados |
+| 5 | Protocolos e retornos | **Concluída** | Catálogo de protocolos com intervalos definidos pela profissional, aplicação ao paciente, retornos programados e recalculados, vínculo retorno ↔ agendamento, fila de lembretes com tentativas e falhas |
+| 6 | Dashboard | **Concluída** | Indicadores reais do banco: agenda do dia, retornos atrasados, próximas ações comerciais, leads novos, conversão por etapa, origem dos leads e procedimentos realizados, com filtro de período |
+| 7 | WhatsApp | **Concluída (estrutura)** | Adaptadores de desenvolvimento e da Cloud API, webhook com assinatura e idempotência, conversas vinculadas a leads/pacientes, janela de 24h, status de entrega/leitura. **Envio real depende das credenciais da Meta** (veja abaixo) |
+| 8 | Equipe e LGPD | **Concluída** | Gestão de contas na interface (perfis, desativação, senha provisória com troca obrigatória), troca da própria senha, rotina de retenção de dados técnicos |
 
-**O que já funciona (etapa 1):** login com e-mail e senha, sessões seguras, perfis de acesso, trilha de auditoria (com tela para a administração), layout responsivo com navegação, dashboard inicial, health check e scripts de gestão de contas. O **modelo de dados completo do MVP** já está no banco (com as restrições de integridade), mas os módulos de leads, pacientes, agenda, protocolos e WhatsApp ainda **não** têm telas nem operações — suas páginas dizem isso explicitamente.
+### Pendências reais e limitações
+
+- **WhatsApp real:** o código da Cloud API está pronto e testado com respostas simuladas da API, mas **nunca foi exercitado contra a Meta** — faltam número verificado, token, segredo do app e modelos aprovados. Passo a passo em [`docs/whatsapp.md`](docs/whatsapp.md). Sem isso, use `WHATSAPP_PROVIDER=disabled` (padrão em produção): nada é enviado e os lembretes ficam visíveis no CRM.
+- **Agendador da fila de lembretes:** o endpoint `/api/jobs/reminders` existe e as configurações prontas (crontab, systemd, Vercel, GitHub Actions) estão em [`docs/operacao.md`](docs/operacao.md#3-agendador-da-fila-de-lembretes), mas o agendador precisa ser ligado na hospedagem. Sem ele, a fila só é processada pelo botão “Processar fila” (perfis Profissional e Administração) — e o servidor avisa no log ao iniciar sem `CRON_SECRET`.
+- **Retenção de dados pessoais:** a rotina automática cobre apenas dados técnicos. Prazos de guarda de dados de pacientes e anonimização de leads antigos dependem de decisão jurídica da clínica — veja [`docs/seguranca-e-lgpd.md`](docs/seguranca-e-lgpd.md).
+- **Mídia no WhatsApp:** mensagens recebidas com imagem, áudio ou documento são registradas apenas como “[tipo] conteúdo não exibido” (a mídia não é baixada nem armazenada).
+- **Notificações em tempo real:** a tela de conversas não se atualiza sozinha (há o botão “Atualizar”), para não manter sessões ociosas abertas indefinidamente.
+- **Agenda por sala/equipamento** e **pagamentos/financeiro** estão fora do escopo atual.
 
 ## Stack
 
 | Camada | Tecnologia |
 | --- | --- |
-| Framework | Next.js 16.4 (App Router, Cache Components, Turbopack) + React 19.3 |
+| Framework | Next.js 16.4 (App Router, Cache Components / Partial Prerendering, Turbopack) + React 19.3 |
 | Linguagem | TypeScript 5.9 (modo estrito) |
-| Interface | Tailwind CSS 4.3 + shadcn/ui 4 (base Radix, estilo Nova) |
+| Interface | Tailwind CSS 4.3 + shadcn/ui 4 (Radix), dnd-kit (funil), Recharts (gráfico) |
 | Banco | PostgreSQL 18 + Prisma ORM 7.10 (driver adapter `pg`) |
-| Validação | Zod 4 |
+| Datas | date-fns 4 + `@date-fns/tz` (fuso da clínica) |
+| Telefones | libphonenumber-js (E.164) |
+| Validação | Zod 4 (cliente e servidor) |
 | Senhas | Argon2id (`@node-rs/argon2`) |
 | Testes | Vitest 5 (unitários e de integração com PostgreSQL real) |
 
 ## Requisitos
 
-- Node.js **22.12 ou superior** (desenvolvido com Node 24 LTS) e npm 10+
-- Docker (para o PostgreSQL local) — ou um PostgreSQL próprio com a extensão `btree_gist` disponível (testado com a versão 18)
+- Node.js **22.12 ou superior** (desenvolvido com Node 24) e npm 10+
+- Docker (PostgreSQL local) — ou um PostgreSQL 16+ próprio com a extensão `btree_gist`
 
 ## Como rodar localmente
 
@@ -44,6 +53,7 @@ npm install
 
 # 2. Variáveis de ambiente
 cp .env.example .env            # PowerShell: Copy-Item .env.example .env
+#    gere DATA_ENCRYPTION_KEY e CRON_SECRET (comandos no próprio .env.example)
 
 # 3. Banco de dados (cria os bancos crm_dev e crm_test)
 npm run db:up
@@ -56,7 +66,7 @@ npm run db:seed
 npm run dev
 ```
 
-Acesse <http://localhost:3000>. Contas fictícias criadas pelo seed (senha = `SEED_USER_PASSWORD` do `.env`):
+Acesse <http://localhost:3000>. Contas fictícias do seed (senha = `SEED_USER_PASSWORD` do `.env`):
 
 | Perfil | E-mail |
 | --- | --- |
@@ -64,9 +74,9 @@ Acesse <http://localhost:3000>. Contas fictícias criadas pelo seed (senha = `SE
 | Profissional | `profissional@demo.test` |
 | Recepção | `recepcao@demo.test` |
 
-Os dados de desenvolvimento usam o domínio reservado `.test` e o sobrenome "Demo". Em desenvolvimento, o cabeçalho exibe "Desenvolvimento: dados fictícios". O seed se recusa a rodar com `NODE_ENV=production`.
+O seed cria também leads, pacientes, agenda (com datas relativas a hoje), um protocolo aplicado, retornos e uma conversa **simulada** — todos fictícios (domínio `.test`, sobrenome “Demo”, categoria “Demonstração”). Ele se recusa a rodar com `NODE_ENV=production`. Em desenvolvimento, o cabeçalho exibe “Desenvolvimento: dados fictícios” e o WhatsApp funciona em **modo de desenvolvimento** (nada sai do servidor; tudo marcado como simulado).
 
-> **npm 11 e scripts de instalação:** o npm 11 só executa scripts de instalação de pacotes aprovados. Os necessários (Prisma, esbuild, unrs-resolver) já estão aprovados em `allowScripts` no `package.json`. Se o npm avisar sobre um pacote novo, revise com `npm install-scripts ls` antes de aprovar.
+> **npm 11 e scripts de instalação:** os pacotes que precisam de scripts (Prisma, esbuild, unrs-resolver) já estão aprovados em `allowScripts`. Se o npm avisar sobre um pacote novo, revise com `npm install-scripts ls` antes de aprovar.
 
 ## Scripts
 
@@ -84,25 +94,26 @@ Os dados de desenvolvimento usam o domínio reservado `.test` e o sobrenome "Dem
 | `npm run db:migrate` | Aplica/cria migrations em desenvolvimento |
 | `npm run db:deploy` | Aplica migrations em produção/CI (sem criar novas) |
 | `npm run db:seed` | Dados fictícios de desenvolvimento |
-| `npm run db:reset` | Recria o banco de desenvolvimento do zero e roda o seed |
+| `npm run db:reset` | Recria o banco de desenvolvimento do zero e roda o seed (pede confirmação) |
 | `npm run db:studio` | Prisma Studio |
-| `npm run user:create` | Cria uma conta da equipe (ver abaixo) |
-| `npm run user:reset-password` | Redefine a senha e encerra as sessões da pessoa |
+| `npm run user:create` | Cria uma conta pela linha de comando (primeira conta de administração) |
+| `npm run user:reset-password` | Redefine a senha pela linha de comando e encerra as sessões |
+| `npm run data:retention` | Retenção de dados técnicos — **simula**; `-- --apply` executa |
+| `npm run data:rotate-key` | Rotação da chave das observações — **simula**; `-- --apply` recifra ([procedimento](docs/operacao.md#rotação-da-data_encryption_key)) |
 
-### Contas da equipe em ambientes reais
+### Contas da equipe
 
-Até a etapa 8 (gestão de usuários na interface), contas são criadas pela linha de comando. A senha é digitada sem eco e validada pela política (mínimo de 12 caracteres, sem senhas óbvias). Toda operação é auditada.
+A primeira conta de administração é criada pela linha de comando; as demais, pela tela **Equipe** (menu Gestão):
 
 ```bash
 npm run user:create -- --email daniela@clinica.com.br --name "Daniela Zilioli" --role ADMIN
-npm run user:reset-password -- --email daniela@clinica.com.br
 ```
 
-Perfis: `ADMIN` (administração), `PROFESSIONAL` (profissional de saúde), `RECEPTION` (recepção/atendimento).
+Na tela Equipe, a administração cria contas, muda perfis, desativa/reativa e gera **senhas provisórias** (exibidas uma única vez; a troca é exigida no primeiro acesso). Contas nunca são excluídas — a auditoria depende delas. O sistema impede desativar a própria conta e ficar sem nenhuma administração ativa.
 
 ## Variáveis de ambiente
 
-Todas são validadas com Zod na inicialização do servidor (`src/instrumentation.ts`); se algo estiver errado, o servidor não sobe e a mensagem lista apenas os **nomes** das variáveis, nunca os valores.
+Validadas com Zod na inicialização (`src/instrumentation.ts`); se algo estiver errado o servidor não sobe e a mensagem lista apenas **nomes** de variáveis, nunca valores.
 
 | Variável | Obrigatória | Descrição |
 | --- | --- | --- |
@@ -115,6 +126,17 @@ Todas são validadas com Zod na inicialização do servidor (`src/instrumentatio
 | `SESSION_IDLE_TIMEOUT_MINUTES` | não | Encerramento por inatividade (padrão 120) |
 | `TRUST_PROXY` | não | `true` somente atrás de proxy reverso confiável (ativa o limite de login por IP) |
 | `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` | multi-instância | Chave estável para Server Actions (`openssl rand -base64 32`) |
+| `DATA_ENCRYPTION_KEY` | sim, para observações | AES-256 (32 bytes em base64) que cifra as observações dos pacientes. **Sem ela, observações antigas ficam ilegíveis** — guarde com o mesmo cuidado do backup |
+| `DATA_ENCRYPTION_KEY_PREVIOUS` | só na rotação | Chave anterior, aceita apenas na leitura enquanto `data:rotate-key` recifra as observações; remova ao concluir |
+| `CRON_SECRET` | para o agendador | Segredo exigido por `/api/jobs/reminders` (mín. 32 caracteres) |
+| `REMINDER_RETURN_DAYS_BEFORE` | não | Antecedência do lembrete de retorno, em dias (padrão 2; enviado às 09:00) |
+| `REMINDER_APPOINTMENT_HOURS_BEFORE` | não | Antecedência do lembrete de agendamento, em horas (padrão 24) |
+| `WHATSAPP_PROVIDER` | não | `disabled` (padrão em produção), `development` (padrão fora de produção; proibido em produção) ou `cloud_api` |
+| `WHATSAPP_GRAPH_API_VERSION` | não | Versão da Graph API (padrão `v23.0`) |
+| `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_APP_SECRET`, `WHATSAPP_WEBHOOK_VERIFY_TOKEN` | com `cloud_api` | Credenciais da Cloud API e do webhook |
+| `WHATSAPP_BUSINESS_ACCOUNT_ID` | não | Conta do WhatsApp Business (referência) |
+| `WHATSAPP_TEMPLATE_LANGUAGE` | não | Idioma dos modelos (padrão `pt_BR`) |
+| `WHATSAPP_TEMPLATE_RETURN_REMINDER`, `WHATSAPP_TEMPLATE_APPOINTMENT_REMINDER` | com `cloud_api` | Nomes dos modelos aprovados na Meta para os lembretes |
 | `SEED_USER_PASSWORD` | seed | Senha das contas fictícias de desenvolvimento |
 
 ## Arquitetura
@@ -122,111 +144,119 @@ Todas são validadas com Zod na inicialização do servidor (`src/instrumentatio
 ```
 src/
 ├── app/
-│   ├── (auth)/login/        Tela de login (formulário + Server Action)
-│   ├── (app)/               Área autenticada: layout com barra lateral e páginas dos módulos
-│   ├── api/health/          Health check (consulta o banco)
-│   └── globals.css          Tokens do design system
-├── components/
-│   ├── ui/                  Componentes shadcn/ui
-│   ├── layout/              Barra lateral, cabeçalho, páginas, estados vazios
-│   └── brand/               Monograma
-├── lib/                     Código isomórfico: permissões, validação, formatação, catálogo de módulos
-├── server/                  Código exclusivo do servidor
-│   ├── auth/                Senhas, tokens, sessões, limite de login, DAL, Server Actions
-│   ├── db/                  Prisma Client
-│   ├── queries/             Consultas com autorização embutida
-│   ├── audit.ts             Trilha de auditoria
-│   ├── env.ts               Variáveis de ambiente (Zod)
-│   └── logger.ts            Logs estruturados com redação
-├── generated/prisma/        Prisma Client gerado (não versionado)
-├── instrumentation.ts       Validação de ambiente na inicialização e log de erros
-└── proxy.ts                 Redirecionamento otimista para o login
-prisma/                      Schema, migrations e seed
-scripts/                     Gestão de contas pela linha de comando
-tests/                       unit/ e integration/
+│   ├── (auth)/login/            Login (formulário + Server Action)
+│   ├── (app)/                   Área autenticada: dashboard, leads, pacientes, agenda,
+│   │                            protocolos, procedimentos, whatsapp, equipe, auditoria, conta
+│   └── api/
+│       ├── health/              Health check (consulta o banco)
+│       ├── pacientes/[id]/exportar/   Exportação LGPD (somente administração)
+│       ├── webhooks/whatsapp/   Webhook da Cloud API (assinatura + idempotência)
+│       └── jobs/reminders/      Processamento da fila de lembretes (CRON_SECRET)
+├── components/                  ui/ (shadcn), layout/, data/, forms/ e componentes por módulo
+├── hooks/                       useAction (Server Actions + feedback), useResetOnHide
+├── lib/                         Código isomórfico: rótulos, datas no fuso, telefones, dinheiro,
+│                                cálculo de protocolos, posicionamento da agenda, validações (Zod)
+├── server/
+│   ├── auth/                    Senhas, tokens, sessões, limite de login, DAL, actions de login
+│   ├── actions/                 Server Actions (envelope runAction: sessão + permissão + erros)
+│   ├── services/                Regras de negócio (recebem o ator; testadas com banco real)
+│   ├── queries/                 Leituras com autorização embutida
+│   ├── whatsapp/                Contrato do provedor, adaptadores e leitura de webhooks
+│   ├── crypto/                  Cifragem AES-256-GCM das observações
+│   ├── maintenance/             Rotina de retenção de dados técnicos
+│   ├── audit.ts, env.ts, logger.ts, errors.ts
+└── proxy.ts                     Redirecionamento otimista para o login
+prisma/                          Schema, migrations e seed fictício
+scripts/                         Linha de comando: contas e retenção
+tests/                           unit/ e integration/
+docs/                            Documentação por domínio
 ```
 
-**Fluxo de uma requisição autenticada**
+**Camadas.** Página (Server Component) → consulta com permissão (`server/queries`) para ler; formulário/ação → Server Action (`server/actions`, sempre via `runAction`: valida sessão, exige a permissão, converte erros) → serviço (`server/services`, confere a permissão de novo, valida regras, grava em transação e audita). Os serviços recebem o banco e o “relógio” por parâmetro — por isso os testes de integração exercitam as mesmas regras que a interface usa.
 
-1. `proxy.ts` verifica apenas se existe o cookie de sessão (checagem otimista) e, se não existir, redireciona para `/login?next=…`.
-2. A página entrega imediatamente o HTML estático (barra lateral, títulos, esqueletos) — *Partial Prerendering*.
-3. Cada parte que depende do usuário roda dentro de `<Suspense>` e chama a **DAL** (`src/server/auth/dal.ts`), que valida a sessão no banco **a cada requisição** e então busca os dados.
-4. Server Actions repetem a validação e a checagem de permissão — nunca confiam no que a interface escondeu.
+**Fluxo de uma requisição autenticada.** `proxy.ts` só verifica a presença do cookie. A página entrega o HTML estático (layout, títulos, esqueletos) e as partes dependentes do usuário rodam em `<Suspense>`, chamando a DAL (`server/auth/dal.ts`), que valida a sessão no banco **a cada requisição** (com `connection()`, para nada autenticado ser pré-renderizado). Com senha provisória pendente, toda página e ação leva à troca de senha.
 
-A validação de sessão chama `connection()`: com o *Partial Prefetching* do Next.js 16, rotas que leem cookies poderiam ter conteúdo autenticado pré-renderizado e guardado no navegador; aqui, sessão e dados protegidos só são resolvidos na requisição real.
+Documentação por domínio:
 
-## Segurança e LGPD
+- [Modelo de dados](docs/modelo-de-dados.md)
+- [Fluxos comerciais (leads, funil, conversão, indicadores)](docs/fluxos-comerciais.md)
+- [Agendamentos](docs/agendamentos.md)
+- [Protocolos, retornos e lembretes](docs/protocolos-e-retornos.md)
+- [Integração com o WhatsApp](docs/whatsapp.md)
+- [Segurança e LGPD](docs/seguranca-e-lgpd.md)
+- [Operação em produção (deploy, agendador, backups, rotação de chaves, recuperação)](docs/operacao.md)
+- [Auditoria técnica de 02/11/2026](docs/auditoria-tecnica.md)
 
-### Autenticação
-- Senhas com **Argon2id** (m = 19 MiB, t = 2, p = 1 — mínimo da OWASP), com *rehash* automático se os parâmetros forem endurecidos.
-- **Sessões no banco**: o cookie guarda um token aleatório de 256 bits; o banco guarda só o **SHA-256** do token.
-- Cookie `HttpOnly`, `SameSite=Lax`, `Secure` e prefixo `__Host-` em produção.
-- Expiração absoluta (12 h) e por inatividade (2 h); usuários desativados perdem a sessão imediatamente.
-- **Limite de tentativas**: 5 falhas por e-mail em 15 min bloqueiam novas tentativas; por IP (20 falhas) quando `TRUST_PROXY=true`.
-- Mesma resposta e tempo equivalente para e-mail inexistente, senha errada e usuário desativado (sem enumeração de contas). O motivo real fica só na auditoria.
-- Destino pós-login validado contra *open redirect*. Server Actions têm a verificação de origem (CSRF) do Next.js.
+## Segurança e LGPD (resumo)
 
-### Autorização (RBAC)
+Detalhes em [`docs/seguranca-e-lgpd.md`](docs/seguranca-e-lgpd.md).
+
+- **Autenticação:** Argon2id; sessões no banco (cookie com token de 256 bits, banco guarda só o SHA-256); `HttpOnly`, `SameSite=Lax`, `Secure` e prefixo `__Host-` em produção; expiração absoluta (12 h) e por inatividade (2 h); limite de tentativas por e-mail (e por IP com `TRUST_PROXY`); respostas sem enumeração de contas.
+- **Autorização (RBAC) no servidor**, em três camadas: páginas (`checkPermission`), Server Actions (`requirePermission`) e serviços (`assertPermission`). Esconder um botão nunca é a proteção.
 
 | Permissão | Recepção | Profissional | Administração |
 | --- | :---: | :---: | :---: |
-| Leads, pacientes, agenda, retornos, WhatsApp | ✓ | ✓ | ✓ |
-| Excluir leads, arquivar pacientes, configurar procedimentos/protocolos | | ✓ | ✓ |
-| Observações clínicas | | ✓ | ✓ |
-| Auditoria e gestão de contas | | | ✓ |
+| Leads, pacientes, agenda, retornos, lembretes, WhatsApp | ✓ | ✓ | ✓ |
+| Excluir leads, inativar pacientes, procedimentos/protocolos, aplicar protocolos, processar a fila | | ✓ | ✓ |
+| Observações clínicas (leitura auditada) | | ✓ | ✓ |
+| Equipe, auditoria, exportação de dados de pacientes | | | ✓ |
 
-As permissões ficam em `src/lib/auth/permissions.ts` e são verificadas **no servidor** (`requirePermission` nas Server Actions, `checkPermission` nas páginas, e dentro das funções de consulta). Atribua `ADMIN` apenas à responsável técnica/gestora da clínica.
-
-### Auditoria
-- Registra entradas, saídas, tentativas sem sucesso, bloqueios, acessos negados, criação de contas e redefinição de senhas — com autor, data, IP e agente do navegador.
-- **Não registra conteúdo** de dados pessoais ou clínicos: o campo `metadata` aceita só valores simples e passa por redação.
-- **Somente inserção**: um *trigger* no banco impede `UPDATE` e `DELETE` na tabela `audit_logs`; contas com histórico não podem ser excluídas (apenas desativadas).
-
-### Logs
-Logs estruturados (JSON em produção) com redação automática: chaves sensíveis (senha, token, cookie, telefone, e-mail, conteúdo…) são substituídas e textos livres têm e-mails, telefones e CPFs mascarados — inclusive mensagens de erro do banco, que podem repetir valores da linha que falhou. Consultas de busca (query string) não são registradas.
-
-### Cabeçalhos HTTP
-CSP restritiva, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`, `X-Robots-Tag: noindex` e HSTS (em HTTPS). A CSP usa `'unsafe-inline'` para scripts porque CSP com *nonce* é incompatível com o *Partial Prerendering*; as demais diretivas não permitem nenhuma origem externa.
-
-### Minimização de dados
-- O cadastro não pede CPF, endereço nem documentos — apenas o necessário para o atendimento.
-- Consentimento para WhatsApp registrado com data (`whatsappOptIn`/`whatsappOptInAt`), exigido pela política do WhatsApp e pela LGPD.
-- Webhooks do WhatsApp serão registrados **sem o payload bruto**.
-- Planejado: cifragem das observações clínicas na aplicação (etapa 3); exportação, anonimização e rotinas de retenção (etapa 8).
+- **Auditoria somente inserção** (trigger no banco) de acessos, alterações, consentimentos, leituras de observações clínicas, exportações e operações da equipe — sem conteúdo pessoal no `metadata`.
+- **Dados de saúde minimizados:** cadastro sem CPF/endereço; observações sempre cifradas (AES-256-GCM com o paciente como dado autenticado); campos comerciais avisam para não registrar informação clínica.
+- **Consentimentos datados** (WhatsApp, comunicações promocionais, uso de imagem); revogar o WhatsApp cancela os lembretes pendentes.
+- **Direitos do titular:** exportação completa dos dados do paciente (JSON, auditada); exclusão definitiva de leads (pedido de eliminação); retenção de dados técnicos por rotina explícita.
+- **Webhooks** autenticados por HMAC-SHA256 do corpo bruto, deduplicados e registrados **sem o payload**.
+- **Logs** estruturados com redação automática (senhas, tokens, telefones, e-mails, CPFs); a CSP não permite origens externas.
 
 O sistema **não gera diagnósticos nem recomendações clínicas**: os intervalos de retorno são definidos pela profissional, e o sistema apenas calcula datas a partir deles.
 
-## Banco de dados
+## Banco de dados e migrations
 
-O schema (`prisma/schema.prisma`) cobre todo o MVP: equipe, sessões, auditoria, leads e interações, pacientes e observações, procedimentos, protocolos e etapas, protocolos do paciente, procedimentos realizados, lembretes de retorno, agendamentos e a estrutura de WhatsApp (conversas, mensagens, eventos de webhook).
+O schema (`prisma/schema.prisma`) e as migrations em `prisma/migrations/` cobrem equipe/sessões/auditoria, leads e interações, pacientes e observações, procedimentos, protocolos e etapas, protocolos do paciente, procedimentos realizados, retornos, fila de lembretes, agenda com histórico e WhatsApp (conversas, mensagens, eventos de webhook). Detalhes e invariantes: [`docs/modelo-de-dados.md`](docs/modelo-de-dados.md).
 
-Restrições que o Prisma não expressa estão no SQL da migration inicial:
-- **Agenda sem conflitos**: `EXCLUDE USING gist` impede dois agendamentos ativos sobrepostos para o mesmo profissional (cancelados não bloqueiam; horários encostados são permitidos).
-- Término posterior ao início; todo agendamento ligado a paciente ou lead.
-- Telefones em E.164, e-mails da equipe em minúsculas, cores e durações válidas.
-- Trigger de auditoria somente inserção.
+| Migration | Conteúdo |
+| --- | --- |
+| `20261031155449_init` | Estrutura inicial, `btree_gist`, agenda sem sobreposição (`EXCLUDE`), CHECKs, auditoria somente inserção |
+| `20261031180000_crm_modules` | Módulos do CRM: interações de leads/pacientes, retornos, fila de lembretes com índices de idempotência, histórico da agenda, consentimentos |
+| `20261031180100_appointments_no_show_overlap` | “Não compareceu” também libera o horário na restrição de sobreposição |
 
-Datas e horas ficam em `timestamptz` (UTC) e são exibidas no fuso da clínica.
+Datas e horas ficam em `timestamptz` (UTC) e são exibidas no fuso da clínica; datas de calendário (retornos, nascimento) em `date`.
+
+Em produção: `npm run db:deploy` (aplica migrations sem criar novas). **Faça backup antes de aplicar migrations em produção.**
 
 ## Testes
 
-- **Unitários** (`tests/unit`): hash de senhas, tokens, permissões, proteção de redirecionamento, validações, redação de logs, variáveis de ambiente, IP do cliente, formatação de datas no fuso da clínica.
-- **Integração** (`tests/integration`, PostgreSQL real): ciclo de vida das sessões (expiração, inatividade, desativação), fluxo completo de login com limite de tentativas, auditoria somente inserção, agenda sem conflitos e demais restrições do banco.
+219 testes (Vitest), em duas camadas:
+
+- **Unitários** (`tests/unit`): senhas, tokens, permissões, redirecionamento, validações (Zod) de todos os módulos, redação de logs, ambiente (incluindo regras do WhatsApp), datas no fuso, telefones, dinheiro, cálculo de protocolos, posicionamento da agenda, assinatura/leitura de webhooks (inclusive sobre bytes brutos), adaptador da Cloud API (sem vazar token em logs), cifragem, redação de erros do PostgreSQL, avisos de configuração de produção e a trava do banco de testes.
+- **Integração** (`tests/integration`, PostgreSQL real): sessões e login com limite de tentativas; restrições do banco; leads (duplicidade, funil, interações, conversão transacional e concorrente, exclusão); pacientes (consentimentos, cifragem, acesso clínico auditado, exportação); agenda (fuso, conflitos inclusive com criações simultâneas, janela de datas, reagendamento com histórico, transições, reflexo no funil); protocolos e retornos (cálculo, recálculo, cancelamento, vínculo com a agenda); fila de lembretes (simulação, novas tentativas, falha definitiva, processadores concorrentes, trava presa); WhatsApp (webhook idempotente, status, janela de 24h, simulação); rotas públicas (assinatura do webhook, segredo do cron, exportação recusada vinda de outro site); equipe, troca de senha com limite de tentativas, retenção e rotação da chave das observações.
+
+```bash
+npm run check   # lint + typecheck + todos os testes + build
+```
 
 ## Produção
 
-1. Configure as variáveis de ambiente (veja a tabela acima), com `APP_URL` em `https://`.
-2. `npm ci && npm run build`
-3. `npm run db:deploy` — aplica as migrations
-4. `npm run user:create -- --email … --name "…" --role ADMIN` — primeira conta
-5. `npm start` (ou a plataforma de hospedagem). Monitore `GET /api/health`.
+Guia completo — checklist, configuração, agendador, backups e restauração, rotação de chaves, monitoramento e runbook de falhas: **[`docs/operacao.md`](docs/operacao.md)**. Resumo:
 
-Atrás de um proxy reverso que acrescenta o IP do cliente ao `X-Forwarded-For` (Nginx, Caddy, a maioria das plataformas), defina `TRUST_PROXY=true`. Em produção use sempre HTTPS: o cookie de sessão exige conexão segura.
+1. Configure as variáveis de ambiente (com `APP_URL` em `https://` — também no build —, `DATA_ENCRYPTION_KEY`, `CRON_SECRET` e `WHATSAPP_PROVIDER=disabled` até a integração real). O servidor avisa no log (`config.production_warning`) o que estiver faltando.
+2. `npm ci && npm run build`
+3. Backup do banco → `npm run db:deploy`
+4. `npm run user:create -- --email … --name "…" --role ADMIN` (primeira conta)
+5. `npm start`. Monitore `GET /api/health`.
+6. Agende `POST /api/jobs/reminders` (ex.: a cada 5 minutos) com `Authorization: Bearer $CRON_SECRET`.
+7. Opcional: agende `npm run data:retention -- --apply` (ex.: mensalmente).
+
+Atrás de um proxy reverso que acrescenta o IP do cliente ao `X-Forwarded-For`, defina `TRUST_PROXY=true`. Use sempre HTTPS: o cookie de sessão exige conexão segura.
 
 ## Decisões técnicas
 
-- **TypeScript 5.9 e não 7.0**: o `typescript-eslint` (usado pelo `eslint-config-next`) ainda só suporta TypeScript < 6.1.
-- **Prisma 7.10 e não 8**: no npm, a tag `latest` do CLI aponta para um *release candidate* da versão 8; o Prisma Client estável é o 7.10.
-- **`clsx` + `tailwind-merge`**: o shadcn 4 passou a gerar `import { cn } from "cn"`, um pacote ainda em 0.x. Os componentes usam `cn` de `@/lib/utils`, e o ESLint acusa o import antigo se o CLI do shadcn o gerar de novo.
-- **Somente tema escuro**: identidade visual definida para a clínica (grafite, preto e rosé), sem alternância de tema.
+- **Regras de negócio em serviços testáveis**, não nas telas: as Server Actions só traduzem formulário → serviço; os serviços recebem ator, banco e relógio por parâmetro.
+- **Conflitos de agenda em duas camadas:** checagem com mensagem amigável dentro da transação, serializada por profissional com *advisory lock* (evita *deadlocks* em agendamentos simultâneos), e a restrição `EXCLUDE USING gist` no banco como garantia final.
+- **Fila de lembretes no próprio PostgreSQL** (`FOR UPDATE SKIP LOCKED`, índices parciais de idempotência): sem dependência extra (Redis, filas gerenciadas) para o volume de uma clínica.
+- **WhatsApp atrás de uma interface** (`WhatsAppProvider`): desenvolvimento e Cloud API são intercambiáveis por variável de ambiente; o modo de desenvolvimento é proibido em produção pela validação do ambiente.
+- **Sem atualização automática na tela de conversas:** consultas periódicas manteriam a sessão ativa indefinidamente (contornando o encerramento por inatividade).
+- **TypeScript 5.9 e não 7.0** (limite do `typescript-eslint`); **Prisma 7.10 e não 8** (a tag `latest` do CLI aponta para um *release candidate*).
+- **`clsx` + `tailwind-merge`**: componentes usam `cn` de `@/lib/utils`; o ESLint acusa o import `cn` que o CLI do shadcn 4 gera.
+- **Somente tema escuro** (identidade da clínica: grafite, preto e rosé). A cor de dados dos gráficos é um passo da rampa rosé validado para contraste e legibilidade.
 - **Variáveis de ambiente via `@next/env`** em Prisma, seed, scripts e testes — a mesma ordem de carregamento do Next.js.

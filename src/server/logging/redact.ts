@@ -14,6 +14,17 @@ const EMAIL_PATTERN = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
 const CPF_PATTERN = /(?<![\w-])\d{3}\.?\d{3}\.?\d{3}-?\d{2}(?![\w-])/g;
 const E164_PATTERN = /\+\d{10,15}(?!\d)/g;
 const BR_PHONE_PATTERN = /(?<![\w/-])(?:\+?55[\s-]?)?\(?\d{2}\)?[\s-]?9?\d{4}[\s-]?\d{4}(?![\w-])/g;
+/**
+ * O PostgreSQL repete valores da linha nas mensagens de erro de restrição
+ * (nomes, telefones…): "Failing row contains (…)" (CHECK/NOT NULL) e
+ * "Key (campo)=(valor)" (UNIQUE/EXCLUDE). Os valores são omitidos; o nome da
+ * restrição e dos campos continua no log para o diagnóstico.
+ */
+const PG_FAILING_ROW_PATTERN = /Failing row contains \(.*$/gim;
+// A lista de campos pode ter parênteses aninhados (ex.: tstzrange(...) da agenda).
+const PG_KEY_VALUE_PATTERN = /Key \((.*?)\)=\((.*?)\)(?= already exists| conflicts with|\.?\s*$)/gim;
+/** Rede de segurança: qualquer "Key (…)=(" que sobrar tem o resto da linha omitido. */
+const PG_KEY_VALUE_FALLBACK = /Key \((.*?)\)=\((?!\[valor omitido\]).*$/gim;
 
 /**
  * Chaves técnicas cujos valores são identificadores gerados pelo sistema (não
@@ -49,6 +60,9 @@ export function maskSensitiveText(text: string): string {
   // Telefone antes de CPF: um celular sem formatação também tem 11 dígitos, mas
   // o terceiro é sempre 9. O que sobrar com formato de CPF é mascarado em seguida.
   const masked = text
+    .replace(PG_FAILING_ROW_PATTERN, "Failing row contains ([valores omitidos])")
+    .replace(PG_KEY_VALUE_PATTERN, "Key ($1)=([valor omitido])")
+    .replace(PG_KEY_VALUE_FALLBACK, "Key ($1)=([valor omitido])")
     .replace(EMAIL_PATTERN, "[email]")
     .replace(E164_PATTERN, "[telefone]")
     .replace(BR_PHONE_PATTERN, "[telefone]")

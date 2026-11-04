@@ -10,10 +10,14 @@ import { PrismaClient, type Prisma } from "@/generated/prisma/client";
  */
 export function createPrismaClient(
   connectionString: string,
-  options: { log?: Prisma.LogLevel[] } = {},
+  options: { log?: Prisma.LogLevel[]; errorFormat?: Prisma.ErrorFormat } = {},
 ) {
   const adapter = new PrismaPg({ connectionString });
-  return new PrismaClient({ adapter, log: options.log ?? ["error"] });
+  return new PrismaClient({
+    adapter,
+    log: options.log ?? ["error"],
+    errorFormat: options.errorFormat ?? "colorless",
+  });
 }
 
 export type DbClient = ReturnType<typeof createPrismaClient>;

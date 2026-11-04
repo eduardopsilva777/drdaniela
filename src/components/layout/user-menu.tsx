@@ -1,6 +1,7 @@
 "use client";
 
-import { ChevronsUpDown, LogOut } from "lucide-react";
+import { ChevronsUpDown, KeyRound, LogOut } from "lucide-react";
+import Link from "next/link";
 import { useRef } from "react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -63,6 +64,12 @@ export function UserMenu({ name, email, roleLabel, initials }: UserMenuProps) {
               <span className="block truncate text-xs text-muted-foreground">{email}</span>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link href="/conta/senha">
+                <KeyRound aria-hidden />
+                Alterar senha
+              </Link>
+            </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => logoutForm.current?.requestSubmit()}>
               <LogOut aria-hidden />
               Sair

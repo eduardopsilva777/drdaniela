@@ -12,7 +12,7 @@ import { getRequestMeta } from "@/server/request-meta";
 
 import { authenticateWithPassword, type AuthenticationResult } from "./authenticate";
 import { clearSessionCookie, setSessionCookie } from "./cookies";
-import { getCurrentSession } from "./dal";
+import { getCurrentSession, PASSWORD_CHANGE_PATH } from "./dal";
 import { getLoginThrottlePolicy, getSessionPolicy } from "./policy";
 import { invalidateSession } from "./session-store";
 
@@ -77,7 +77,7 @@ export async function loginAction(
 
   await setSessionCookie(result.session.token, result.session.expiresAt);
   logger.info("auth.login.success", { userId: result.user.id });
-  redirect(sanitizeNextPath(parsed.data.next));
+  redirect(result.user.mustChangePassword ? PASSWORD_CHANGE_PATH : sanitizeNextPath(parsed.data.next));
 }
 
 export async function logoutAction(): Promise<void> {

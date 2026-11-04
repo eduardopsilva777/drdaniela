@@ -49,6 +49,7 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+  --color-chart-accent: var(--chart-accent);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -115,6 +116,9 @@
   --chart-3: var(--lavender);
   --chart-4: var(--sage);
   --chart-5: oklch(0.71 0.016 350);
+  /* Marca de dado dos gráficos: passo da rampa rosé validado para gráficos
+     (faixa de luminosidade, croma e contraste sobre o grafite). */
+  --chart-accent: oklch(0.66 0.11 10);
 
   --sidebar: var(--onyx);
   --sidebar-foreground: oklch(0.86 0.014 30);

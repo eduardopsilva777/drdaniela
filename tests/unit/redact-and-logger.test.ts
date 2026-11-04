@@ -5,7 +5,7 @@ import { maskSensitiveText, redact, REDACTED, serializeError } from "@/server/lo
 
 describe("mascaramento de dados pessoais em texto", () => {
   it.each([
-    ["contato: maria.souza@gmail.com", "contato: [email]"],
+    ["contato: maria.souza@exemplo.com.br", "contato: [email]"],
     ["fone +5511987654321 registrado", "fone [telefone] registrado"],
     ["ligar para (11) 98765-4321", "ligar para [telefone]"],
     ["ligar para 11 98765 4321", "ligar para [telefone]"],
@@ -28,6 +28,28 @@ describe("mascaramento de dados pessoais em texto", () => {
     expect(masked).not.toContain("11987654321");
     expect(masked).not.toContain("ana@x.com");
     expect(masked).toContain("leads_phone_e164_check");
+  });
+
+  it("omite nomes e demais valores da linha nas mensagens de restrição do PostgreSQL", () => {
+    const check = [
+      'new row for relation "patients" violates check constraint "patients_phone_e164_check"',
+      "DETAIL: Failing row contains (0192f, Maria (Mãe) Souza, 1198765, f).",
+    ].join("\n");
+    const masked = maskSensitiveText(check);
+    expect(masked).not.toMatch(/Maria|Souza|Mãe/);
+    expect(masked).toContain("patients_phone_e164_check");
+    expect(masked).toContain("Failing row contains ([valores omitidos])");
+
+    const unique = 'duplicate key value violates unique constraint "leads_phone_key" DETAIL: Key (phone)=(+5511987654321) already exists.';
+    expect(maskSensitiveText(unique)).toBe(
+      'duplicate key value violates unique constraint "leads_phone_key" DETAIL: Key (phone)=([valor omitido]) already exists.',
+    );
+
+    const exclusion =
+      `conflicting key value violates exclusion constraint "appointments_no_overlap" DETAIL: Key (professional_id, tstzrange(starts_at, ends_at, '[)'::text))=(0192f, ["2026-11-04 12:00:00+00","2026-11-04 13:00:00+00")) conflicts with existing key`;
+    const maskedExclusion = maskSensitiveText(exclusion);
+    expect(maskedExclusion).toContain("appointments_no_overlap");
+    expect(maskedExclusion).not.toContain("2026-11-04 12:00");
   });
 });
 

@@ -61,15 +61,24 @@ export async function authenticateWithPassword(
 
   const user = await db.user.findUnique({
     where: { email },
-    select: { id: true, name: true, email: true, role: true, isActive: true, passwordHash: true },
+    select: { id: true, name: true, email: true, role: true, isActive: true, passwordHash: true, mustChangePassword: true },
   });
 
   const passwordMatches = user
     ? await verifyPassword(user.passwordHash, input.password)
     : await burnPasswordVerification(input.password);
 
-  if (!user || !passwordMatches || !user.isActive) {
-    const reason = !user ? "unknown_user" : !passwordMatches ? "wrong_password" : "inactive_user";
+  // A conta de sistema do assistente virtual nunca faz login (defesa em profundidade:
+  // ela já é inativa e não tem senha válida).
+  const systemAccount = user?.role === "ASSISTANT";
+  if (!user || !passwordMatches || !user.isActive || systemAccount) {
+    const reason = !user
+      ? "unknown_user"
+      : systemAccount
+        ? "system_account"
+        : !passwordMatches
+          ? "wrong_password"
+          : "inactive_user";
     await db.$transaction(async (tx) => {
       await recordLoginAttempt(tx, { email, ipAddress, success: false }, now);
       await recordAudit(tx, {
@@ -110,6 +119,6 @@ export async function authenticateWithPassword(
   return {
     ok: true,
     session,
-    user: { id: user.id, name: user.name, email: user.email, role: user.role },
+    user: { id: user.id, name: user.name, email: user.email, role: user.role, mustChangePassword: user.mustChangePassword },
   };
 }

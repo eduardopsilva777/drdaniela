@@ -8,10 +8,12 @@ import { UserMenu } from "./user-menu";
 /**
  * Usuário da sessão no rodapé da barra lateral. Como todo layout autenticado
  * passa por aqui, uma sessão inválida também é redirecionada para o login.
- * Só dados de exibição seguem para o componente cliente.
+ * Só dados de exibição seguem para o componente cliente. Aceita a troca de
+ * senha pendente: quem aplica essa regra são as páginas e as actions — aqui,
+ * redirecionar criaria um laço na própria tela de troca de senha.
  */
 export async function SidebarUser() {
-  const user = await requireUser();
+  const user = await requireUser({ allowPendingPasswordChange: true });
   return (
     <UserMenu
       name={user.name}

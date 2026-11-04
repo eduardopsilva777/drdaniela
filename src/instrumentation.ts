@@ -6,8 +6,13 @@ import type { Instrumentation } from "next";
  */
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
-    const { getServerEnv } = await import("./server/env");
-    getServerEnv();
+    const { getServerEnv, productionConfigWarnings } = await import("./server/env");
+    const env = getServerEnv();
+    const warnings = productionConfigWarnings(env);
+    if (warnings.length > 0) {
+      const { logger } = await import("./server/logger");
+      for (const warning of warnings) logger.warn("config.production_warning", { warning });
+    }
   }
 }
 

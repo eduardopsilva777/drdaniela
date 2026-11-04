@@ -13,7 +13,9 @@ import { SESSION_COOKIE_NAME } from "@/lib/auth/session-cookie";
  */
 
 const PUBLIC_PATHS = new Set(["/login"]);
-const PUBLIC_PREFIXES = ["/api/health", "/api/webhooks/"];
+// Webhooks e tarefas agendadas não têm sessão: cada rota valida a própria
+// credencial (assinatura da Meta, CRON_SECRET) antes de qualquer processamento.
+const PUBLIC_PREFIXES = ["/api/health", "/api/webhooks/", "/api/jobs/"];
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.has(pathname) || PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
