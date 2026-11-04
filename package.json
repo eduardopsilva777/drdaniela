@@ -7,8 +7,8 @@
     "node": ">=22.12.0"
   },
   "scripts": {
-    "dev": "next dev",
     "build": "next build",
+    "dev": "next dev",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
@@ -29,23 +29,27 @@
     "user:reset-password": "tsx scripts/manage-user.ts reset-password",
     "data:retention": "tsx scripts/retention.ts",
     "data:rotate-key": "tsx scripts/rotate-encryption-key.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "upload": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "1.3.0",
     "@date-fns/tz": "1.5.0",
     "@dnd-kit/core": "6.3.1",
     "@dnd-kit/utilities": "3.2.2",
-    "@node-rs/argon2": "2.2.2",
     "@prisma/adapter-pg": "7.10.1",
     "@prisma/client": "7.10.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "2.1.1",
     "cmdk": "^1.1.1",
     "date-fns": "4.4.0",
+    "hash-wasm": "^4.12.0",
     "libphonenumber-js": "1.13.15",
     "lucide-react": "^1.66.0",
-    "next": "16.4.3",
+    "next": "^16.4.5",
     "pg": "8.23.1",
     "radix-ui": "^1.8.1",
     "react": "19.3.1",
@@ -59,6 +63,7 @@
   },
   "devDependencies": {
     "@next/env": "^16.4.3",
+    "@opennextjs/cloudflare": "^1.20.16",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^24.19.2",
     "@types/pg": "^8.23.1",
@@ -72,7 +77,8 @@
     "tsx": "^4.23.15",
     "typescript": "^5",
     "vite": "^8.3.5",
-    "vitest": "^5.0.5"
+    "vitest": "^5.0.5",
+    "wrangler": "^4.157.0"
   },
   "allowScripts": {
     "@prisma/engines@7.10.1": true,

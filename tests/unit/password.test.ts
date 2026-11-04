@@ -1,10 +1,8 @@
-import { hash, parseOptions } from "@node-rs/argon2";
 import { describe, expect, it } from "vitest";
 
 import {
   burnPasswordVerification,
   hashPassword,
-  PASSWORD_HASH_OPTIONS,
   passwordNeedsRehash,
   verifyPassword,
 } from "@/server/auth/password";
@@ -18,10 +16,7 @@ describe("hash de senhas (Argon2id)", () => {
     expect(first).not.toContain("uma-senha-bem-longa");
     expect(first).not.toBe(second);
 
-    const options = parseOptions(first);
-    expect(options.memoryCost).toBe(19_456);
-    expect(options.timeCost).toBe(2);
-    expect(options.parallelism).toBe(1);
+    expect(first).toMatch(/\$m=19456,t=2,p=1\$/);
   });
 
   it("verifica a senha correta e rejeita a incorreta", async () => {
@@ -37,13 +32,8 @@ describe("hash de senhas (Argon2id)", () => {
 
   it("indica rehash quando o hash foi gerado com parâmetros mais fracos", async () => {
     const current = await hashPassword("senha-atual-123");
-    const weaker = await hash("senha-antiga-123", {
-      ...PASSWORD_HASH_OPTIONS,
-      memoryCost: 4096,
-      timeCost: 1,
-    });
     expect(passwordNeedsRehash(current)).toBe(false);
-    expect(passwordNeedsRehash(weaker)).toBe(true);
+    expect(passwordNeedsRehash("$argon2id$v=19$m=4096,t=1,p=1$YWJj$YWJj")).toBe(true);
     expect(passwordNeedsRehash("invalido")).toBe(true);
   });
 

@@ -37,7 +37,7 @@ Um módulo só aparece como disponível quando funciona de ponta a ponta (telas,
 | Datas | date-fns 4 + `@date-fns/tz` (fuso da clínica) |
 | Telefones | libphonenumber-js (E.164) |
 | Validação | Zod 4 (cliente e servidor) |
-| Senhas | Argon2id (`@node-rs/argon2`) |
+| Senhas | Argon2id via WebAssembly (`hash-wasm`) |
 | Testes | Vitest 5 (unitários e de integração com PostgreSQL real) |
 
 ## Requisitos
@@ -248,6 +248,18 @@ Guia completo — checklist, configuração, agendador, backups e restauração,
 7. Opcional: agende `npm run data:retention -- --apply` (ex.: mensalmente).
 
 Atrás de um proxy reverso que acrescenta o IP do cliente ao `X-Forwarded-For`, defina `TRUST_PROXY=true`. Use sempre HTTPS: o cookie de sessão exige conexão segura.
+
+### Deploy no Cloudflare Workers
+
+O projeto usa OpenNext para executar o Next.js no Workers. No Cloudflare, configure:
+
+- **Root directory:** vazio
+- **Build command:** `npm run build`
+- **Deploy command:** `npm run deploy`
+- **Node.js:** 22 ou superior
+- **Branch:** `main`
+
+O repositório já contém `wrangler.jsonc`, `open-next.config.ts` e os scripts de deploy. Não use `npx wrangler deploy` diretamente: ele tenta executar a migração interativa do OpenNext durante o deploy. Configure no Cloudflare as variáveis de produção do [`.env.example`](.env.example), incluindo `DATABASE_URL`, `APP_URL`, `DATA_ENCRYPTION_KEY` e `CRON_SECRET`.
 
 ## Decisões técnicas
 
