@@ -13,7 +13,7 @@ import {
   templateStatusSchema,
 } from "@/lib/validation/assistant";
 import { formDataToObject, uuidSchema } from "@/lib/validation/common";
-import { getAssistantModel } from "@/server/assistant/runtime";
+import { getAgentRuntime, getAssistantModel } from "@/server/assistant/runtime";
 import { RulesAssistantModel } from "@/server/assistant/rules-model";
 import { getContentKeyring } from "@/server/crypto/content-key";
 import { getServerEnv } from "@/server/env";
@@ -30,7 +30,7 @@ import {
   setKnowledgeEntryArchived,
   submitKnowledgeVersion,
 } from "@/server/services/knowledge";
-import { testKnowledgeQuestion, type KnowledgeTestResult } from "@/server/services/knowledge-test";
+import { testKnowledgeQuestion, testKnowledgeQuestionWithAgent, type KnowledgeTestResult } from "@/server/services/knowledge-test";
 import { cancelReturnSequence, pauseReturnSequence, resumeReturnSequence } from "@/server/services/reminders";
 import { cancelTask, completeTask } from "@/server/services/tasks";
 import { saveTemplate, setTemplateStatus, syncTemplatesFromMeta } from "@/server/services/templates";
@@ -173,10 +173,15 @@ export async function testKnowledgeQuestionAction(formData: FormData): Promise<A
     "knowledge:write",
     async ({ db, actor }) => {
       const input = knowledgeTestSchema.parse(formDataToObject(formData));
-      // Com o assistente desativado, o teste usa o motor por regras (nada sai do servidor).
+      // Com a IA conversacional ativa, o teste gera a resposta como no atendimento
+      // (consome o provedor). Desativado, usa o motor por regras (nada sai do servidor).
+      const agent = getAgentRuntime();
       const model = getAssistantModel() ?? new RulesAssistantModel();
       try {
-        return await testKnowledgeQuestion(db, actor, model, input, { timeZone: getServerEnv().APP_TIMEZONE });
+        const options = { timeZone: getServerEnv().APP_TIMEZONE };
+        return agent
+          ? await testKnowledgeQuestionWithAgent(db, actor, agent, input, options)
+          : await testKnowledgeQuestion(db, actor, model, input, options);
       } catch (error) {
         if (error instanceof DomainError) throw error;
         throw new DomainError("Não foi possível consultar o motor do assistente agora. Tente novamente em instantes.");

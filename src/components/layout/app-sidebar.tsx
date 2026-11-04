@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { Monogram } from "@/components/brand/monogram";
+import { ClinniLogo, ClinniSymbol } from "@/components/brand/clinni-logo";
 import {
   Sidebar,
   SidebarContent,
@@ -19,28 +19,24 @@ import { MAIN_MODULES } from "@/lib/app-modules";
 import { NavLink } from "./nav-link";
 
 /**
- * Barra lateral. A navegação principal é igual para todos os perfis e entra no
- * HTML estático; a seção administrativa e o usuário dependem da sessão e chegam
- * por streaming (slots renderizados no servidor, dentro de <Suspense>).
+ * Barra lateral. A marca é a do produto (Clinni); a clínica aparece como espaço
+ * de trabalho logo abaixo. A navegação principal é igual para todos os perfis
+ * e entra no HTML estático; clínica, seção administrativa e usuário dependem
+ * da sessão e chegam por streaming (slots renderizados no servidor).
  */
-export function AppSidebar({ adminNav, userMenu }: { adminNav: ReactNode; userMenu: ReactNode }) {
+export function AppSidebar({ workspace, adminNav, userMenu }: { workspace: ReactNode; adminNav: ReactNode; userMenu: ReactNode }) {
   return (
     <Sidebar collapsible="icon" className="border-sidebar-border">
-      <SidebarHeader className="px-3 pt-5 pb-4">
+      <SidebarHeader className="gap-3.5 px-3 pt-5 pb-3">
         <Link
           href="/dashboard"
-          className="flex items-center gap-3 rounded-lg px-1 py-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
+          aria-label="Clinni — ir para o dashboard"
+          className="flex h-8 items-center px-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
         >
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-[0.7rem] border border-rose/20 bg-rose/[0.06]">
-            <Monogram className="h-[1.05rem]" />
-          </span>
-          <span className="flex min-w-0 flex-col group-data-[collapsible=icon]:hidden">
-            <span className="truncate font-display text-[1.05rem] leading-tight text-sidebar-accent-foreground">
-              Daniela Zilioli
-            </span>
-            <span className="truncate text-xs text-sidebar-foreground/55">Gestão da clínica</span>
-          </span>
+          <ClinniLogo className="h-[1.625rem] group-data-[collapsible=icon]:hidden" title="Clinni" />
+          <ClinniSymbol className="hidden size-6 group-data-[collapsible=icon]:block" title="Clinni" />
         </Link>
+        {workspace}
       </SidebarHeader>
 
       <SidebarContent className="gap-1">

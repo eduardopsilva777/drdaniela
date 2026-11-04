@@ -39,18 +39,18 @@ export function UserMenu({ name, email, roleLabel, initials }: UserMenuProps) {
               className="gap-3 rounded-lg px-2 data-open:bg-sidebar-accent"
               aria-label={`Conta de ${name}`}
             >
-              <Avatar className="size-8 rounded-[0.6rem]">
-                <AvatarFallback className="rounded-[0.6rem] bg-rose/12 text-xs font-medium text-rose">
+              <Avatar className="size-8 rounded-lg">
+                <AvatarFallback className="rounded-lg bg-primary-subtle text-xs font-bold text-primary-subtle-foreground">
                   {initials}
                 </AvatarFallback>
               </Avatar>
               <span className="grid min-w-0 flex-1 text-left leading-tight">
-                <span className="truncate text-sm font-medium text-sidebar-accent-foreground">
+                <span className="truncate text-[0.8125rem] font-semibold text-sidebar-accent-foreground">
                   {name}
                 </span>
-                <span className="truncate text-xs text-sidebar-foreground/55">{roleLabel}</span>
+                <span className="truncate text-xs text-muted-foreground">{roleLabel}</span>
               </span>
-              <ChevronsUpDown aria-hidden className="ml-auto size-4 text-sidebar-foreground/45" />
+              <ChevronsUpDown aria-hidden className="ml-auto size-4 text-muted-foreground" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent

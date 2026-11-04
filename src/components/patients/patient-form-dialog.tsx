@@ -122,8 +122,8 @@ export function PatientFormDialog({ patient, trigger }: { patient?: PatientFormV
             </FormField>
           </div>
           {meta?.existingPatientId ? (
-            <div className="-mt-2 space-y-2 rounded-xl border border-champagne/30 bg-champagne/[0.06] p-3 text-sm">
-              <Link href={`/pacientes/${meta.existingPatientId}`} className="text-rose underline underline-offset-4">
+            <div className="-mt-2 space-y-2 rounded-xl border border-warning/30 bg-warning/[0.06] p-3 text-sm">
+              <Link href={`/pacientes/${meta.existingPatientId}`} className="text-primary underline underline-offset-4">
                 Abrir o cadastro existente
               </Link>
               <label className="flex items-start gap-2.5">

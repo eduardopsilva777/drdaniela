@@ -82,7 +82,7 @@ async function TabsNav({ searchParams }: { searchParams: SearchParams }) {
               aria-current={filters.aba === tab.value ? "page" : undefined}
               className={cn(
                 "-mb-px inline-flex h-10 items-center border-b-2 px-3 text-sm transition-colors",
-                filters.aba === tab.value ? "border-rose text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
+                filters.aba === tab.value ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
               )}
             >
               {tab.label}
@@ -126,13 +126,13 @@ async function ReturnsTab({ filters, user }: { filters: ReturnFilters; user: Ses
     <div className="space-y-4">
       <dl className="grid gap-3 sm:grid-cols-3">
         {[
-          { label: "Atrasados", value: counts.overdue, href: "/protocolos?situacao=atrasados", tone: counts.overdue > 0 ? "text-brick" : "text-foreground" },
+          { label: "Atrasados", value: counts.overdue, href: "/protocolos?situacao=atrasados", tone: counts.overdue > 0 ? "text-destructive" : "text-foreground" },
           { label: `Próximos ${UPCOMING_DAYS} dias`, value: counts.upcoming, href: "/protocolos?situacao=proximos", tone: "text-foreground" },
           { label: "Pendentes ao todo", value: counts.open, href: "/protocolos", tone: "text-foreground" },
         ].map((item) => (
-          <Link key={item.label} href={item.href} className="rounded-2xl border border-border bg-card px-5 py-4 transition-colors hover:border-rose/40">
+          <Link key={item.label} href={item.href} className="rounded-xl border border-border bg-card px-[1.125rem] py-4 transition-colors hover:border-primary/40">
             <dt className="text-sm text-muted-foreground">{item.label}</dt>
-            <dd className={cn("mt-1 text-3xl font-medium tracking-tight tabular-nums", item.tone)}>{item.value}</dd>
+            <dd className={cn("mt-1 text-metric tabular-nums", item.tone)}>{item.value}</dd>
           </Link>
         ))}
       </dl>
@@ -185,7 +185,7 @@ async function ReturnsTab({ filters, user }: { filters: ReturnFilters; user: Ses
                           {item.patientProtocol ? ` · ${item.patientProtocol.protocol.name}` : ""}
                         </span>
                       </p>
-                      <p className={cn("text-xs tabular-nums", open && due.overdue ? "text-brick" : "text-muted-foreground")}>
+                      <p className={cn("text-xs tabular-nums", open && due.overdue ? "text-destructive" : "text-muted-foreground")}>
                         Previsto para {formatKeyDate(dueKey)}
                         {open ? ` · ${due.label}` : ""}
                         {item.appointment ? ` · agendado para ${formatShortDateTime(item.appointment.startsAt, timeZone)}` : ""}
@@ -245,20 +245,20 @@ async function RemindersTab({ filters, user }: { filters: ReturnFilters; user: S
       <Panel
         className={cn(
           "flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6",
-          integration.provider === "development" && "border-lavender/30",
-          integration.provider === "disabled" && "border-champagne/30",
+          integration.provider === "development" && "border-info/30",
+          integration.provider === "disabled" && "border-warning/30",
         )}
       >
         <div className="min-w-0">
           <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-foreground">
             <StatusBadge
-              tone={integration.provider === "cloud_api" ? "sage" : integration.provider === "development" ? "lavender" : "champagne"}
+              tone={integration.provider === "cloud_api" ? "success" : integration.provider === "development" ? "info" : "warning"}
               label={integration.title}
             />
           </p>
           <p className="mt-2 max-w-[70ch] text-sm text-muted-foreground">{integration.description}</p>
           {integration.provider === "cloud_api" && (!integration.templates.appointmentReminder || !integration.templates.returnReminder) ? (
-            <p className="mt-2 text-sm text-champagne">
+            <p className="mt-2 text-sm text-warning">
               Configure os modelos aprovados na Meta (WHATSAPP_TEMPLATE_APPOINTMENT_REMINDER e WHATSAPP_TEMPLATE_RETURN_REMINDER):
               sem eles os lembretes falham com aviso.
             </p>
@@ -341,20 +341,20 @@ async function RemindersTab({ filters, user }: { filters: ReturnFilters; user: S
                     {reminder.task ? (
                       <p className="text-xs text-muted-foreground">
                         Tarefa {reminder.task.status === "OPEN" ? "aberta" : reminder.task.status === "DONE" ? "concluída" : "cancelada"} ·{" "}
-                        <Link href="/tarefas" className="text-rose underline-offset-4 hover:underline">
+                        <Link href="/tarefas" className="text-primary underline-offset-4 hover:underline">
                           ver tarefas
                         </Link>
                       </p>
                     ) : null}
                     {reminder.lastError && reminder.status !== "SENT" ? (
-                      <p className={cn("text-xs", reminder.status === "FAILED" ? "text-brick" : "text-muted-foreground")}>
+                      <p className={cn("text-xs", reminder.status === "FAILED" ? "text-destructive" : "text-muted-foreground")}>
                         {reminder.lastError}
                       </p>
                     ) : null}
                   </div>
                   <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                     <StatusBadge
-                      tone={reminder.simulated && reminder.status === "SENT" ? "lavender" : REMINDER_STATUS_TONES[reminder.status]}
+                      tone={reminder.simulated && reminder.status === "SENT" ? "info" : REMINDER_STATUS_TONES[reminder.status]}
                       label={reminder.simulated && reminder.status === "SENT" ? "Simulado" : REMINDER_STATUS_LABELS[reminder.status]}
                     />
                     {canWrite &&
@@ -403,7 +403,7 @@ async function CatalogTab({ user, includeInactive }: { user: SessionUser; includ
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
           href={includeInactive ? "/protocolos?aba=protocolos" : "/protocolos?aba=protocolos&inativos=1"}
-          className="text-sm text-rose underline-offset-4 hover:underline"
+          className="text-sm text-primary underline-offset-4 hover:underline"
         >
           {includeInactive ? "Mostrar só ativos" : "Mostrar inativos"}
         </Link>
@@ -438,13 +438,13 @@ async function CatalogTab({ user, includeInactive }: { user: SessionUser; includ
             <Panel key={protocol.id} className={cn("flex flex-col p-6", !protocol.isActive && "opacity-70")}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <h2 className="text-base font-medium text-foreground">{protocol.name}</h2>
+                  <h2 className="text-title-3 text-foreground">{protocol.name}</h2>
                   <p className="text-sm text-muted-foreground">
                     {protocol.procedure.name}
                     {!protocol.procedure.isActive ? " (procedimento inativo)" : ""}
                   </p>
                 </div>
-                <StatusBadge tone={protocol.isActive ? "sage" : "muted"} label={protocol.isActive ? "Ativo" : "Inativo"} />
+                <StatusBadge tone={protocol.isActive ? "success" : "muted"} label={protocol.isActive ? "Ativo" : "Inativo"} />
               </div>
               {protocol.description ? <p className="mt-3 text-sm text-foreground/85">{protocol.description}</p> : null}
               {protocol.durationDays ? (

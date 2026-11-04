@@ -33,7 +33,7 @@ import type {
 
 /** Rótulos em português e tons de cor dos valores de domínio (isomórfico). */
 
-export type Tone = "neutral" | "rose" | "champagne" | "lavender" | "sage" | "brick" | "muted";
+export type Tone = "neutral" | "primary" | "warning" | "info" | "success" | "danger" | "muted";
 
 export const LEAD_STATUS_ORDER: LeadStatus[] = ["NEW", "IN_PROGRESS", "SCHEDULED", "CONVERTED", "LOST"];
 /** Etapas "abertas" do funil, na ordem em que um lead avança. */
@@ -49,10 +49,10 @@ export const LEAD_STATUS_LABELS: Record<LeadStatus, string> = {
 
 export const LEAD_STATUS_TONES: Record<LeadStatus, Tone> = {
   NEW: "neutral",
-  IN_PROGRESS: "champagne",
-  SCHEDULED: "lavender",
-  CONVERTED: "sage",
-  LOST: "brick",
+  IN_PROGRESS: "warning",
+  SCHEDULED: "info",
+  CONVERTED: "success",
+  LOST: "danger",
 };
 
 export const LEAD_SOURCE_LABELS: Record<LeadSource, string> = {
@@ -75,7 +75,7 @@ export const LEAD_PRIORITY_LABELS: Record<LeadPriority, string> = {
 export const LEAD_PRIORITY_TONES: Record<LeadPriority, Tone> = {
   LOW: "muted",
   MEDIUM: "neutral",
-  HIGH: "rose",
+  HIGH: "primary",
 };
 
 export const INTERACTION_TYPE_LABELS: Record<InteractionType, string> = {
@@ -97,11 +97,11 @@ export const APPOINTMENT_STATUS_LABELS: Record<AppointmentStatus, string> = {
 };
 
 export const APPOINTMENT_STATUS_TONES: Record<AppointmentStatus, Tone> = {
-  SCHEDULED: "lavender",
-  CONFIRMED: "rose",
-  COMPLETED: "sage",
+  SCHEDULED: "info",
+  CONFIRMED: "primary",
+  COMPLETED: "success",
   CANCELLED: "muted",
-  NO_SHOW: "brick",
+  NO_SHOW: "danger",
 };
 
 export const APPOINTMENT_EVENT_LABELS: Record<AppointmentEventType, string> = {
@@ -127,10 +127,10 @@ export const RETURN_STATUS_LABELS: Record<ReturnStatus, string> = {
 };
 
 export const RETURN_STATUS_TONES: Record<ReturnStatus, Tone> = {
-  PENDING: "champagne",
-  SCHEDULED: "lavender",
-  COMPLETED: "sage",
-  MISSED: "brick",
+  PENDING: "warning",
+  SCHEDULED: "info",
+  COMPLETED: "success",
+  MISSED: "danger",
   CANCELLED: "muted",
 };
 
@@ -152,8 +152,8 @@ export const PATIENT_PROTOCOL_STATUS_LABELS: Record<PatientProtocolStatus, strin
 };
 
 export const PATIENT_PROTOCOL_STATUS_TONES: Record<PatientProtocolStatus, Tone> = {
-  ACTIVE: "rose",
-  COMPLETED: "sage",
+  ACTIVE: "primary",
+  COMPLETED: "success",
   CANCELLED: "muted",
 };
 
@@ -172,10 +172,10 @@ export const REMINDER_STATUS_LABELS: Record<ReminderStatus, string> = {
 };
 
 export const REMINDER_STATUS_TONES: Record<ReminderStatus, Tone> = {
-  PENDING: "champagne",
-  PROCESSING: "lavender",
-  SENT: "sage",
-  FAILED: "brick",
+  PENDING: "warning",
+  PROCESSING: "info",
+  SENT: "success",
+  FAILED: "danger",
   CANCELLED: "muted",
   PAUSED: "neutral",
 };
@@ -235,19 +235,19 @@ export const ASSISTANT_OUTCOME_LABELS: Record<AssistantOutcome, string> = {
 };
 
 export const ASSISTANT_OUTCOME_TONES: Record<AssistantOutcome, Tone> = {
-  ANSWERED: "sage",
+  ANSWERED: "success",
   ASKED: "neutral",
-  OFFERED_SLOTS: "lavender",
-  AWAITING_CONFIRMATION: "lavender",
-  BOOKED: "sage",
-  RESCHEDULED: "sage",
+  OFFERED_SLOTS: "info",
+  AWAITING_CONFIRMATION: "info",
+  BOOKED: "success",
+  RESCHEDULED: "success",
   APPOINTMENT_CANCELLED: "muted",
-  HANDOFF: "champagne",
-  NO_ANSWER: "champagne",
-  OPT_OUT: "brick",
-  OPT_IN: "sage",
+  HANDOFF: "warning",
+  NO_ANSWER: "warning",
+  OPT_OUT: "danger",
+  OPT_IN: "success",
   SILENT: "muted",
-  ERROR: "brick",
+  ERROR: "danger",
 };
 
 export const KNOWLEDGE_CATEGORY_LABELS: Record<KnowledgeCategory, string> = {
@@ -269,9 +269,9 @@ export const KNOWLEDGE_VERSION_STATUS_LABELS: Record<KnowledgeVersionStatus, str
 
 export const KNOWLEDGE_VERSION_STATUS_TONES: Record<KnowledgeVersionStatus, Tone> = {
   DRAFT: "muted",
-  IN_REVIEW: "champagne",
-  APPROVED: "sage",
-  REJECTED: "brick",
+  IN_REVIEW: "warning",
+  APPROVED: "success",
+  REJECTED: "danger",
   SUPERSEDED: "neutral",
 };
 
@@ -292,10 +292,10 @@ export const TEMPLATE_STATUS_LABELS: Record<TemplateStatus, string> = {
 
 export const TEMPLATE_STATUS_TONES: Record<TemplateStatus, Tone> = {
   DRAFT: "muted",
-  PENDING: "champagne",
-  APPROVED: "sage",
-  REJECTED: "brick",
-  PAUSED: "champagne",
+  PENDING: "warning",
+  APPROVED: "success",
+  REJECTED: "danger",
+  PAUSED: "warning",
   DISABLED: "muted",
 };
 
@@ -350,10 +350,10 @@ export const TASK_KIND_LABELS: Record<TaskKind, string> = {
 };
 
 export const TASK_KIND_TONES: Record<TaskKind, Tone> = {
-  HANDOFF: "rose",
-  QUALIFIED_LEAD: "sage",
-  FOLLOW_UP: "lavender",
-  AUTOMATION_FAILURE: "brick",
+  HANDOFF: "primary",
+  QUALIFIED_LEAD: "success",
+  FOLLOW_UP: "info",
+  AUTOMATION_FAILURE: "danger",
 };
 
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {

@@ -130,6 +130,57 @@ export async function getAssistantOverview(periodDays: number) {
 }
 
 // -----------------------------------------------------------------------------
+// Consumo da IA generativa
+// -----------------------------------------------------------------------------
+
+export async function getAiUsageOverview(periodDays: number, monthStart: Date) {
+  await requirePermission("assistant:monitor");
+  const db = getDb();
+  const from = new Date(Date.now() - periodDays * DAY);
+  const withModel = { createdAt: { gte: from }, modelCalls: { gt: 0 } };
+
+  const [period, month, errors, tools, followUps] = await Promise.all([
+    db.assistantRun.aggregate({
+      where: withModel,
+      _sum: { inputTokens: true, outputTokens: true, cacheReadTokens: true, cacheWriteTokens: true, modelCalls: true, costMicros: true },
+      _avg: { modelLatencyMs: true },
+      _count: { _all: true },
+    }),
+    db.assistantRun.aggregate({ where: { createdAt: { gte: monthStart } }, _sum: { costMicros: true } }),
+    db.assistantRun.groupBy({
+      by: ["errorCode"],
+      where: { createdAt: { gte: from }, errorCode: { not: null } },
+      _count: { _all: true },
+      orderBy: { _count: { errorCode: "desc" } },
+      take: 6,
+    }),
+    db.$queryRaw<Array<{ tool: string; uses: bigint }>>`
+      SELECT t."tool", COUNT(*) AS "uses"
+      FROM "assistant_runs" r, UNNEST(r."tool_calls") AS t("tool")
+      WHERE r."created_at" >= ${from}
+      GROUP BY t."tool"
+      ORDER BY "uses" DESC
+      LIMIT 8`,
+    db.assistantRun.groupBy({ by: ["status"], where: { kind: "FOLLOW_UP", createdAt: { gte: from } }, _count: { _all: true } }),
+  ]);
+
+  return {
+    turns: period._count._all,
+    modelCalls: period._sum.modelCalls ?? 0,
+    inputTokens: period._sum.inputTokens ?? 0,
+    outputTokens: period._sum.outputTokens ?? 0,
+    cacheReadTokens: period._sum.cacheReadTokens ?? 0,
+    cacheWriteTokens: period._sum.cacheWriteTokens ?? 0,
+    costMicros: period._sum.costMicros ?? 0,
+    avgModelLatencyMs: period._avg.modelLatencyMs,
+    monthCostMicros: month._sum.costMicros ?? 0,
+    errors: errors.map((row) => ({ code: row.errorCode ?? "—", count: row._count._all })),
+    tools: tools.map((row) => ({ tool: row.tool, uses: Number(row.uses) })),
+    followUps: Object.fromEntries(followUps.map((row) => [row.status, row._count._all])) as Partial<Record<string, number>>,
+  };
+}
+
+// -----------------------------------------------------------------------------
 // Base de conhecimento
 // -----------------------------------------------------------------------------
 
@@ -328,6 +379,10 @@ export async function getAutomationLogs() {
         flags: true,
         latencyMs: true,
         attempts: true,
+        kind: true,
+        toolCalls: true,
+        modelCalls: true,
+        costMicros: true,
         errorCode: true,
         errorMessage: true,
         createdAt: true,

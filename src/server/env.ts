@@ -85,9 +85,29 @@ export const serverEnvSchema = z
      * Motor do assistente virtual do WhatsApp:
      * disabled:  o assistente não responde (atendimento só pela equipe) — padrão em produção.
      * rules:     motor por regras, sem IA generativa: responde só com textos aprovados — padrão fora de produção.
-     * anthropic: Claude interpreta as mensagens e redige respostas a partir da base aprovada.
+     * anthropic: IA generativa (Claude). Ver AI_ENGINE.
      */
     AI_PROVIDER: z.enum(["disabled", "rules", "anthropic"]).optional(),
+    /**
+     * Com AI_PROVIDER=anthropic:
+     * agent:  conversa gerada pela IA a cada mensagem, com ferramentas do CRM executadas e validadas pelo servidor (padrão).
+     * guided: a IA só interpreta a mensagem; o roteiro e os textos são os configurados (motor anterior).
+     */
+    AI_ENGINE: z.enum(["agent", "guided"]).default("agent"),
+    /** Teto de tokens gerados por chamada (inclui o raciocínio do modelo). */
+    AI_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(1_000).max(32_000).default(8_000),
+    /** Tempo máximo de um turno completo da IA (todas as chamadas e ferramentas). */
+    AI_TURN_TIMEOUT_MS: z.coerce.number().int().min(15_000).max(300_000).default(120_000),
+    /** Chamadas simultâneas ao provedor de IA por processo. */
+    AI_MAX_CONCURRENCY: z.coerce.number().int().min(1).max(20).default(3),
+    /**
+     * Preços (US$ por milhão de tokens) usados só para ESTIMAR o custo e aplicar o
+     * limite mensal. Padrões: claude-opus-5-5. Atualize ao trocar de modelo.
+     */
+    AI_PRICE_INPUT_PER_MTOK: z.coerce.number().min(0).max(1_000).default(4),
+    AI_PRICE_OUTPUT_PER_MTOK: z.coerce.number().min(0).max(1_000).default(20),
+    AI_PRICE_CACHE_READ_PER_MTOK: z.coerce.number().min(0).max(1_000).default(0.2),
+    AI_PRICE_CACHE_WRITE_PER_MTOK: z.coerce.number().min(0).max(1_000).default(5),
     ANTHROPIC_API_KEY: optionalSecret(20),
     ANTHROPIC_MODEL: z
       .string()

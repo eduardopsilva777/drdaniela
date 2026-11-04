@@ -60,7 +60,7 @@ export function InteractionForm({
             onClick={() => setType(option)}
             className={cn(
               "h-8 rounded-full border border-border px-3 text-xs transition-colors",
-              type === option ? "border-rose/60 bg-rose/10 text-foreground" : "text-muted-foreground hover:text-foreground",
+              type === option ? "border-primary/60 bg-primary-subtle font-semibold text-primary-subtle-foreground" : "text-muted-foreground hover:text-foreground",
             )}
           >
             {INTERACTION_TYPE_LABELS[option]}
@@ -75,7 +75,7 @@ export function InteractionForm({
               <input
                 type="radio"
                 name="directionChoice"
-                className="accent-[var(--rose)]"
+                className="accent-[var(--primary)]"
                 checked={direction === option}
                 onChange={() => setDirection(option)}
               />

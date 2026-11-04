@@ -163,6 +163,30 @@ export function parseYesNo(text: string): boolean | null {
   return null;
 }
 
+/** Ressalvas que tornam uma resposta "sim" condicional ou duvidosa. */
+const CONFIRMATION_BLOCKERS =
+  /\b(nao|nem|mas|porem|entretanto|contudo|so se|somente se|desde que|caso|talvez|acho que|sera|depois|espera|perai|calma|outro|outra|outros|outras|mudar|muda|trocar|troca|diferente)\b/;
+
+const CONFIRMATION_SIGNALS =
+  /\b(sim|claro|pode|confirm\w*|fechado|combinado|perfeito|isso|exato|certo|ok|okay|beleza|blz|bora|show|otimo|aceito|quero|marca|marque|agenda|agende|remarca|remarque|cancela|cancele|com certeza)\b/;
+
+/**
+ * Confirmação explícita do contato para uma ação importante (agendar, remarcar,
+ * cancelar). Mais tolerante que `parseYesNo` com frases naturais ("pode marcar",
+ * "confirmo sim, obrigada"), mas recusa qualquer ressalva ("sim, mas…", "pode
+ * ser, só se for de manhã"), pergunta ou mensagem longa: na dúvida, NÃO é
+ * confirmação — a IA pergunta de novo.
+ */
+export function isExplicitConfirmation(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed || trimmed.includes("?")) return false;
+  if (/^(👍|✅|👌|🙏|😊|🥰|❤️|♥️)+$/u.test(trimmed.replace(/\s+/g, ""))) return true;
+  const message = bare(trimmed);
+  if (!message || message.length > 120) return false;
+  if (CONFIRMATION_BLOCKERS.test(message)) return false;
+  return CONFIRMATION_SIGNALS.test(message);
+}
+
 const ORDINALS: Record<string, number> = { primeira: 1, primeiro: 1, ultima: -1, ultimo: -1 };
 
 /** Número da opção escolhida ("2", "opção 2", "a primeira"); null se não for uma escolha. */

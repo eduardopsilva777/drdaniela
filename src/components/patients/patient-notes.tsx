@@ -44,7 +44,7 @@ export function PatientNoteForm({ patientId, canWriteClinical }: { patientId: st
               onClick={() => setVisibility(option)}
               className={cn(
                 "h-8 rounded-full border border-border px-3 text-xs transition-colors",
-                visibility === option ? "border-rose/60 bg-rose/10 text-foreground" : "text-muted-foreground hover:text-foreground",
+                visibility === option ? "border-primary/60 bg-primary-subtle font-semibold text-primary-subtle-foreground" : "text-muted-foreground hover:text-foreground",
               )}
             >
               {NOTE_VISIBILITY_LABELS[option]}
@@ -92,14 +92,14 @@ export function PatientNoteList({ notes }: { notes: NoteItem[] }) {
         <li key={note.id} className="rounded-xl border border-border p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <StatusBadge
-              tone={note.visibility === "CLINICAL" ? "rose" : "neutral"}
+              tone={note.visibility === "CLINICAL" ? "primary" : "neutral"}
               label={NOTE_VISIBILITY_LABELS[note.visibility]}
             />
             <span className="text-xs text-muted-foreground tabular-nums">
               {note.createdAtLabel} por {note.authorName}
             </span>
           </div>
-          <p className={cn("mt-3 text-sm leading-relaxed whitespace-pre-line", !note.readable && "text-brick")}>
+          <p className={cn("mt-3 text-sm leading-relaxed whitespace-pre-line", !note.readable && "text-destructive")}>
             {!note.readable ? <Lock aria-hidden className="mr-1.5 inline size-3.5" /> : null}
             {note.content}
           </p>

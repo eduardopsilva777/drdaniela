@@ -134,7 +134,7 @@ export function LeadBoard({ columns, closedWindowDays }: { columns: BoardColumnD
           },
         }}
       >
-        <div className="-mx-4 overflow-x-auto px-4 pb-4 sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10">
+        <div className="-mx-4 overflow-x-auto px-4 pb-4 sm:-mx-6 sm:px-6 lg:-mx-9 lg:px-9">
           <div className="grid min-w-max auto-cols-[minmax(17rem,1fr)] grid-flow-col gap-4 xl:min-w-0 xl:grid-cols-5">
             {optimisticColumns.map((column) => (
               <BoardColumn
@@ -172,8 +172,8 @@ function BoardColumn({
       ref={setNodeRef}
       aria-label={`${LEAD_STATUS_LABELS[column.status]}: ${column.total} leads`}
       className={cn(
-        "flex min-h-[24rem] flex-col rounded-2xl border border-border bg-card/60 transition-colors",
-        isOver && "border-rose/50 bg-rose/[0.04]",
+        "flex min-h-[24rem] flex-col rounded-xl border border-border bg-muted/55 transition-colors",
+        isOver && "border-primary/50 bg-primary/[0.04]",
       )}
     >
       <header className="flex items-center justify-between gap-2 px-4 pt-4 pb-3">
@@ -239,8 +239,8 @@ function LeadCardContent({
   return (
     <article
       className={cn(
-        "space-y-2.5 rounded-xl border border-border bg-surface-raised/60 p-3.5 text-sm shadow-[inset_0_1px_0_0_oklch(1_0_0/0.04)]",
-        dragging && "rotate-1 border-rose/40 shadow-lg shadow-black/40",
+        "space-y-2.5 rounded-xl border border-border bg-card p-3.5 text-sm",
+        dragging && "rotate-1 border-primary/40 shadow-lg",
       )}
     >
       <div className="flex items-start justify-between gap-2">
@@ -281,14 +281,14 @@ function LeadCardContent({
 
       {card.interest ? <p className="line-clamp-2 text-[0.8125rem] text-foreground/80">{card.interest}</p> : null}
       {card.status === "LOST" && card.lostReason ? (
-        <p className="line-clamp-2 text-xs text-brick/90">{card.lostReason}</p>
+        <p className="line-clamp-2 text-xs text-destructive/90">{card.lostReason}</p>
       ) : null}
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted-foreground">
         <span>{card.sourceLabel}</span>
         {card.priority === "HIGH" ? (
-          <span className="inline-flex items-center gap-1 text-rose">
-            <span aria-hidden className="size-1.5 rounded-full bg-rose" />
+          <span className="inline-flex items-center gap-1 text-primary">
+            <span aria-hidden className="size-1.5 rounded-full bg-primary" />
             Prioridade {LEAD_PRIORITY_LABELS.HIGH.toLowerCase()}
           </span>
         ) : null}
@@ -297,7 +297,7 @@ function LeadCardContent({
       {card.nextAction || card.ownerInitials ? (
         <div className="flex items-center justify-between gap-2 border-t border-border pt-2.5 text-xs">
           {card.nextAction ? (
-            <span className={cn("inline-flex items-center gap-1.5", card.nextAction.overdue ? "text-brick" : "text-muted-foreground")}>
+            <span className={cn("inline-flex items-center gap-1.5", card.nextAction.overdue ? "text-destructive" : "text-muted-foreground")}>
               <CalendarClock aria-hidden className="size-3.5" />
               {card.nextAction.label}
             </span>
@@ -308,7 +308,7 @@ function LeadCardContent({
             <span
               title={card.ownerName ?? undefined}
               aria-label={`Responsável: ${card.ownerName}`}
-              className="flex size-6 items-center justify-center rounded-full bg-rose/12 text-[0.625rem] font-medium text-rose"
+              className="flex size-6 items-center justify-center rounded-full bg-primary-subtle text-[0.625rem] font-bold text-primary-subtle-foreground"
             >
               {card.ownerInitials}
             </span>

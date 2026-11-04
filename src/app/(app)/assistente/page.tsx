@@ -22,6 +22,7 @@ import { StatusBadge } from "@/components/ui-kit/status-badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { hasPermission } from "@/lib/auth/permissions";
+import { startOfMonthKey, todayKey, zonedDateTime } from "@/lib/datetime";
 import { formatShortDateTime } from "@/lib/format";
 import {
   ASSISTANT_OUTCOME_LABELS,
@@ -52,6 +53,7 @@ import { getDb } from "@/server/db";
 import { getServerEnv } from "@/server/env";
 import {
   ASSISTANT_PAGE_SIZE,
+  getAiUsageOverview,
   getAssistantOverview,
   getAutomationLogs,
   getConsentOverview,
@@ -106,7 +108,7 @@ async function TabsNav({ searchParams }: { searchParams: SearchParams }) {
               aria-current={filters.aba === tab.value ? "page" : undefined}
               className={cn(
                 "-mb-px inline-flex h-10 items-center border-b-2 px-3 text-sm transition-colors",
-                filters.aba === tab.value ? "border-rose text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
+                filters.aba === tab.value ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
               )}
             >
               {tab.label}
@@ -157,16 +159,16 @@ function Tile({ label, value, hint, href }: { label: string; value: ReactNode; h
   const content = (
     <>
       <dt className="text-sm text-muted-foreground">{label}</dt>
-      <dd className="mt-1 text-3xl font-medium tracking-tight text-foreground tabular-nums">{value}</dd>
+      <dd className="mt-1 text-metric text-foreground tabular-nums">{value}</dd>
       {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
     </>
   );
   return href ? (
-    <Link href={href} className="block rounded-2xl border border-border bg-card px-5 py-4 transition-colors hover:border-rose/40">
+    <Link href={href} className="block rounded-xl border border-border bg-card px-[1.125rem] py-4 transition-colors hover:border-primary/40">
       {content}
     </Link>
   ) : (
-    <div className="rounded-2xl border border-border bg-card px-5 py-4">{content}</div>
+    <div className="rounded-xl border border-border bg-card px-[1.125rem] py-4">{content}</div>
   );
 }
 
@@ -181,6 +183,112 @@ function percent(part: number, total: number): string {
   return total > 0 ? `${Math.round((part / total) * 100)}%` : "—";
 }
 
+const USD = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const COMPACT = new Intl.NumberFormat("pt-BR", { notation: "compact", maximumFractionDigits: 1 });
+
+function formatUsd(micros: number): string {
+  return USD.format(micros / 1_000_000);
+}
+
+/** Nomes das ferramentas do CRM usadas pela IA, como a equipe entende. */
+const TOOL_LABELS: Record<string, string> = {
+  search_knowledge: "Consultou a base aprovada",
+  list_services: "Consultou procedimentos",
+  check_availability: "Consultou horários",
+  register_lead: "Cadastrou/atualizou lead",
+  update_lead: "Atualizou lead",
+  register_opportunity: "Registrou oportunidade",
+  list_my_appointments: "Listou agendamentos do contato",
+  propose_booking: "Propôs agendamento",
+  propose_reschedule: "Propôs remarcação",
+  propose_cancellation: "Propôs cancelamento",
+  confirm_pending_action: "Executou ação confirmada",
+  discard_pending_action: "Descartou proposta",
+  confirm_attendance: "Registrou confirmação de presença",
+  create_staff_task: "Criou tarefa para a equipe",
+  save_conversation_notes: "Atualizou notas da conversa",
+  request_human: "Transferiu para a equipe",
+  record_return_response: "Registrou resposta a retorno",
+  opt_out_contact: "Descadastrou o contato",
+};
+
+async function AiUsageSection({ periodDays }: { periodDays: number }) {
+  const env = getServerEnv();
+  const monthStart = zonedDateTime(startOfMonthKey(todayKey(env.APP_TIMEZONE)), "00:00", env.APP_TIMEZONE);
+  const [usage, config] = await Promise.all([getAiUsageOverview(periodDays, monthStart), getAssistantConfig(getDb())]);
+  const budgetMicros = Math.round(config.agent.monthlyBudgetUsd * 1_000_000);
+  const followUpsSent = usage.followUps.COMPLETED ?? 0;
+  const followUpsSkipped = usage.followUps.SKIPPED ?? 0;
+  return (
+    <section aria-labelledby="metrics-ai" className="space-y-3">
+      <h2 id="metrics-ai" className="text-sm font-semibold text-foreground">
+        IA conversacional — consumo e custo estimado
+      </h2>
+      <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Tile
+          label="Gasto estimado no mês"
+          value={formatUsd(usage.monthCostMicros)}
+          hint={`Limite: ${formatUsd(budgetMicros)} (${percent(usage.monthCostMicros, budgetMicros)}) · no período: ${formatUsd(usage.costMicros)}`}
+          href="/assistente?aba=configuracoes"
+        />
+        <Tile
+          label="Mensagens respondidas pela IA"
+          value={usage.turns}
+          hint={`${usage.modelCalls} chamada(s) ao modelo · média ${usage.avgModelLatencyMs !== null ? `${(usage.avgModelLatencyMs / 1000).toFixed(1).replace(".", ",")} s` : "—"}`}
+        />
+        <Tile
+          label="Tokens no período"
+          value={COMPACT.format(usage.inputTokens + usage.outputTokens + usage.cacheReadTokens + usage.cacheWriteTokens)}
+          hint={`Entrada ${COMPACT.format(usage.inputTokens)} · saída ${COMPACT.format(usage.outputTokens)} · cache ${COMPACT.format(usage.cacheReadTokens)}`}
+        />
+        <Tile
+          label="Acompanhamentos da IA"
+          value={followUpsSent}
+          hint={`${followUpsSkipped} dispensado(s) pelas regras (horário, limite, resposta do contato…)`}
+        />
+      </dl>
+      <div className="grid gap-3 lg:grid-cols-2">
+        <Panel className="p-5">
+          <h3 className="text-sm font-semibold text-foreground">Ferramentas do CRM usadas pela IA</h3>
+          {usage.tools.length === 0 ? (
+            <p className="mt-2 text-sm text-muted-foreground">Nenhum uso no período.</p>
+          ) : (
+            <ul className="mt-3 space-y-1.5 text-sm">
+              {usage.tools.map((item) => (
+                <li key={item.tool} className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">{TOOL_LABELS[item.tool] ?? item.tool}</span>
+                  <span className="text-foreground tabular-nums">{item.uses}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+        <Panel className="p-5">
+          <h3 className="text-sm font-semibold text-foreground">Falhas por tipo</h3>
+          {usage.errors.length === 0 ? (
+            <p className="mt-2 text-sm text-muted-foreground">Nenhuma falha no período.</p>
+          ) : (
+            <ul className="mt-3 space-y-1.5 text-sm">
+              {usage.errors.map((item) => (
+                <li key={item.code} className="flex items-center justify-between gap-3">
+                  <code className="text-xs text-muted-foreground">{item.code}</code>
+                  <span className="text-foreground tabular-nums">{item.count}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="mt-3 text-xs text-muted-foreground">
+            Detalhes de cada execução em <Link href="/assistente?aba=registros" className="underline underline-offset-4">Registros</Link>.
+          </p>
+        </Panel>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Custo estimado com os preços configurados no servidor (AI_PRICE_*); a fatura do provedor é a referência oficial.
+      </p>
+    </section>
+  );
+}
+
 async function OverviewTab({ filters }: { filters: AssistantFilters }) {
   const period = Number(filters.periodo);
   const [overview, engine] = [await getAssistantOverview(period), getAssistantEngineStatus()];
@@ -190,7 +298,7 @@ async function OverviewTab({ filters }: { filters: AssistantFilters }) {
     <div className="space-y-6">
       <Panel className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:justify-between sm:p-6">
         <div className="flex items-start gap-3">
-          <Bot aria-hidden className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
+          <Bot aria-hidden className="mt-0.5 size-5 shrink-0 text-insight" />
           <div className="space-y-1">
             <p className="text-sm font-medium text-foreground">
               {engine.title}
@@ -213,7 +321,7 @@ async function OverviewTab({ filters }: { filters: AssistantFilters }) {
       </Panel>
 
       <section aria-labelledby="metrics-attendance" className="space-y-3">
-        <h2 id="metrics-attendance" className="text-sm font-medium text-foreground">
+        <h2 id="metrics-attendance" className="text-sm font-semibold text-foreground">
           Atendimento
         </h2>
         <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -230,7 +338,7 @@ async function OverviewTab({ filters }: { filters: AssistantFilters }) {
       </section>
 
       <section aria-labelledby="metrics-leads" className="space-y-3">
-        <h2 id="metrics-leads" className="text-sm font-medium text-foreground">
+        <h2 id="metrics-leads" className="text-sm font-semibold text-foreground">
           Captação e agenda
         </h2>
         <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -241,8 +349,10 @@ async function OverviewTab({ filters }: { filters: AssistantFilters }) {
         </dl>
       </section>
 
+      {engine.provider === "anthropic" ? <AiUsageSection periodDays={overview.periodDays} /> : null}
+
       <section aria-labelledby="metrics-returns" className="space-y-3">
-        <h2 id="metrics-returns" className="text-sm font-medium text-foreground">
+        <h2 id="metrics-returns" className="text-sm font-semibold text-foreground">
           Retornos e consentimento
         </h2>
         <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -336,7 +446,7 @@ async function KnowledgeTab({ filters, user }: { filters: AssistantFilters; user
                         </div>
                         <div className="flex flex-wrap gap-1.5">
                           {entry.isArchived ? <StatusBadge tone="muted" label="Arquivada" /> : null}
-                          {published && !entry.isArchived ? <StatusBadge tone="sage" label={`Publicada (v${published.version})`} /> : null}
+                          {published && !entry.isArchived ? <StatusBadge tone="success" label={`Publicada (v${published.version})`} /> : null}
                           {latest && (!published || pendingNew) ? (
                             <StatusBadge tone={KNOWLEDGE_VERSION_STATUS_TONES[latest.status]} label={`${KNOWLEDGE_VERSION_STATUS_LABELS[latest.status]} (v${latest.version})`} />
                           ) : null}
@@ -382,7 +492,7 @@ async function KnowledgeTab({ filters, user }: { filters: AssistantFilters; user
       </div>
       <aside className="space-y-3">
         <Panel className="p-5">
-          <h2 className="mb-1 text-sm font-medium text-foreground">Testar antes de publicar</h2>
+          <h2 className="mb-1 text-sm font-semibold text-foreground">Testar antes de publicar</h2>
           <p className="mb-4 text-xs text-muted-foreground">
             Mesmo motor e mesma checagem de segurança do atendimento, sem enviar mensagem. Use para conferir respostas novas.
           </p>
@@ -422,14 +532,14 @@ async function GapsTab({ filters, user }: { filters: AssistantFilters; user: Ses
                       {gap.conversationId ? (
                         <>
                           {" · "}
-                          <Link href={`/whatsapp?conversa=${gap.conversationId}`} className="text-rose underline-offset-4 hover:underline">
+                          <Link href={`/whatsapp?conversa=${gap.conversationId}`} className="text-primary underline-offset-4 hover:underline">
                             ver conversa
                           </Link>
                         </>
                       ) : null}
                     </p>
                     {gap.feedbackNote ? <p className="text-xs text-foreground/80">Comentário: {gap.feedbackNote}</p> : null}
-                    {gap.resolvedEntryId ? <StatusBadge tone="champagne" label="Resposta criada — aguardando aprovação" /> : null}
+                    {gap.resolvedEntryId ? <StatusBadge tone="warning" label="Resposta criada — aguardando aprovação" /> : null}
                   </div>
                   {canWrite ? (
                     <div className="flex shrink-0 gap-1">
@@ -480,9 +590,15 @@ async function SettingsTab({ user }: { user: SessionUser }) {
         procedures={procedures.map((item) => ({ value: item.id, label: `${item.name} (${item.durationMinutes} min)` }))}
         professionals={professionals.map((item) => ({ value: item.id, label: item.name }))}
         readOnly={!hasPermission(user.role, "assistant:configure")}
+        engine={settingsEngineOf(getServerEnv())}
       />
     </div>
   );
+}
+
+function settingsEngineOf(env: ReturnType<typeof getServerEnv>): "agent" | "guided" | "rules" | "disabled" {
+  if (env.AI_PROVIDER === "anthropic") return env.AI_ENGINE;
+  return env.AI_PROVIDER;
 }
 
 async function TemplatesTab({ user }: { user: SessionUser }) {
@@ -581,7 +697,7 @@ async function ConsentsTab({ page }: { page: number }) {
   return (
     <div className="grid gap-6 lg:grid-cols-[22rem_minmax(0,1fr)]">
       <Panel aria-label="Números descadastrados" className="overflow-hidden">
-        <h2 className="border-b border-border px-5 py-3 text-sm font-medium text-foreground">Descadastrados ({optedOut.length})</h2>
+        <h2 className="border-b border-border px-5 py-3 text-sm font-semibold text-foreground">Descadastrados ({optedOut.length})</h2>
         {optedOut.length === 0 ? (
           <p className="px-5 py-4 text-sm text-muted-foreground">Nenhum descadastro.</p>
         ) : (
@@ -603,7 +719,7 @@ async function ConsentsTab({ page }: { page: number }) {
         </p>
       </Panel>
       <Panel aria-label="Histórico de consentimentos" className="overflow-hidden">
-        <h2 className="border-b border-border px-5 py-3 text-sm font-medium text-foreground">Histórico (prova de consentimento)</h2>
+        <h2 className="border-b border-border px-5 py-3 text-sm font-semibold text-foreground">Histórico (prova de consentimento)</h2>
         {events.length === 0 ? (
           <p className="px-5 py-4 text-sm text-muted-foreground">Nenhum registro ainda.</p>
         ) : (
@@ -622,7 +738,7 @@ async function ConsentsTab({ page }: { page: number }) {
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
-                    <StatusBadge tone={event.granted ? "sage" : "brick"} label={event.granted ? "Autorizou" : "Revogou"} />
+                    <StatusBadge tone={event.granted ? "success" : "danger"} label={event.granted ? "Autorizou" : "Revogou"} />
                     <time className="text-xs text-muted-foreground tabular-nums">{formatShortDateTime(event.createdAt, timeZone)}</time>
                   </div>
                 </li>
@@ -648,7 +764,7 @@ async function LogsTab() {
       </dl>
 
       <Panel aria-label="Execuções do assistente" className="overflow-hidden">
-        <h2 className="border-b border-border px-5 py-3 text-sm font-medium text-foreground">Execuções recentes do assistente</h2>
+        <h2 className="border-b border-border px-5 py-3 text-sm font-semibold text-foreground">Execuções recentes do assistente</h2>
         {logs.runs.length === 0 ? (
           <p className="px-5 py-4 text-sm text-muted-foreground">Nenhuma execução ainda.</p>
         ) : (
@@ -666,9 +782,16 @@ async function LogsTab() {
                       {run.intent ? ` · intenção: ${run.intent}` : ""}
                       {run.latencyMs !== null ? ` · ${(run.latencyMs / 1000).toFixed(1).replace(".", ",")} s` : ""}
                       {run.attempts > 1 ? ` · ${run.attempts} tentativas` : ""}
+                      {run.kind === "FOLLOW_UP" ? " · acompanhamento" : ""}
+                      {run.modelCalls > 0 ? ` · ${run.modelCalls} chamada(s) · ${formatUsd(run.costMicros)}` : ""}
                       {run.flags.length ? ` · ${run.flags.join(", ")}` : ""}
                     </p>
-                    {run.errorMessage ? <p className="text-xs text-brick">{run.errorMessage}</p> : null}
+                    {run.toolCalls.length ? (
+                      <p className="text-xs text-muted-foreground">
+                        Ferramentas: {run.toolCalls.map((tool) => TOOL_LABELS[tool] ?? tool).join(" → ")}
+                      </p>
+                    ) : null}
+                    {run.errorMessage ? <p className="text-xs text-destructive">{run.errorMessage}</p> : null}
                   </div>
                   {run.outcome ? (
                     <StatusBadge tone={ASSISTANT_OUTCOME_TONES[run.outcome]} label={ASSISTANT_OUTCOME_LABELS[run.outcome]} />
@@ -684,7 +807,7 @@ async function LogsTab() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Panel aria-label="Mensagens com falha" className="overflow-hidden">
-          <h2 className="border-b border-border px-5 py-3 text-sm font-medium text-foreground">Mensagens com falha</h2>
+          <h2 className="border-b border-border px-5 py-3 text-sm font-semibold text-foreground">Mensagens com falha</h2>
           {logs.failedMessages.length === 0 ? (
             <p className="px-5 py-4 text-sm text-muted-foreground">Nenhuma falha.</p>
           ) : (
@@ -697,14 +820,14 @@ async function LogsTab() {
                   <p className="text-xs text-muted-foreground">
                     {MESSAGE_ORIGIN_LABELS[message.origin]} · {formatShortDateTime(message.createdAt, timeZone)} · {message.attempts} tentativa(s)
                   </p>
-                  <p className="text-xs text-brick">{message.errorMessage ?? message.errorCode}</p>
+                  <p className="text-xs text-destructive">{message.errorMessage ?? message.errorCode}</p>
                 </li>
               ))}
             </ul>
           )}
         </Panel>
         <Panel aria-label="Lembretes com falha" className="overflow-hidden">
-          <h2 className="border-b border-border px-5 py-3 text-sm font-medium text-foreground">Lembretes com falha</h2>
+          <h2 className="border-b border-border px-5 py-3 text-sm font-semibold text-foreground">Lembretes com falha</h2>
           {logs.failedReminders.length === 0 ? (
             <p className="px-5 py-4 text-sm text-muted-foreground">Nenhuma falha.</p>
           ) : (
@@ -715,19 +838,19 @@ async function LogsTab() {
                   <p className="text-xs text-muted-foreground">
                     {REMINDER_KIND_LABELS[reminder.kind]} · {formatShortDateTime(reminder.updatedAt, timeZone)} · {reminder.attempts} tentativa(s)
                   </p>
-                  <p className="text-xs text-brick">{reminder.lastError}</p>
+                  <p className="text-xs text-destructive">{reminder.lastError}</p>
                 </li>
               ))}
             </ul>
           )}
           <p className="border-t border-border px-5 py-3 text-xs">
-            <Link href="/protocolos?aba=lembretes&lembrete=FAILED" className="text-rose underline-offset-4 hover:underline">
+            <Link href="/protocolos?aba=lembretes&lembrete=FAILED" className="text-primary underline-offset-4 hover:underline">
               Reenviar ou cancelar na fila de lembretes
             </Link>
           </p>
         </Panel>
         <Panel aria-label="Webhooks com erro" className="overflow-hidden">
-          <h2 className="border-b border-border px-5 py-3 text-sm font-medium text-foreground">Webhooks com erro</h2>
+          <h2 className="border-b border-border px-5 py-3 text-sm font-semibold text-foreground">Webhooks com erro</h2>
           {logs.webhookErrors.length === 0 ? (
             <p className="px-5 py-4 text-sm text-muted-foreground">Nenhum erro.</p>
           ) : (
@@ -738,7 +861,7 @@ async function LogsTab() {
                     {event.kind} · {formatShortDateTime(event.receivedAt, timeZone)}
                   </p>
                   <p className="text-xs text-muted-foreground">{event.processedAt ? "Reprocessado com sucesso" : "Aguardando reentrega da Meta"}</p>
-                  <p className="text-xs text-brick">{event.errorMessage}</p>
+                  <p className="text-xs text-destructive">{event.errorMessage}</p>
                 </li>
               ))}
             </ul>

@@ -2,7 +2,7 @@ import { decryptWithKeyring, encryptField, type Keyring } from "./field-encrypti
 
 /**
  * Cifragem de conteúdos livres que podem conter dados sensíveis — textos das
- * mensagens do WhatsApp e perguntas guardadas para curadoria. Usa a mesma
+ * mensagens do WhatsApp, notas do assistente e perguntas guardadas para curadoria. Usa a mesma
  * chave das observações (DATA_ENCRYPTION_KEY, AES-256-GCM, rotação suportada).
  *
  * Sem chave configurada (desenvolvimento), o texto é gravado como está; a
@@ -23,6 +23,11 @@ export function messageContext(conversationId: string): string {
 }
 
 export const KNOWLEDGE_GAP_CONTEXT = "knowledge_gap";
+
+/** Notas do assistente sobre uma conversa (só legíveis na conversa de origem). */
+export function memoryContext(conversationId: string): string {
+  return `assistant_memory:${conversationId}`;
+}
 
 export function isSealed(value: string): boolean {
   return SEALED_PATTERN.test(value);

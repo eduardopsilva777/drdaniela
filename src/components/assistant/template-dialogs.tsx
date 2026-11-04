@@ -129,7 +129,7 @@ export function TemplateFormDialog({ template, trigger }: { template?: TemplateV
           {count > 0 ? (
             <fieldset className="space-y-2">
               <legend className="text-[0.8125rem] font-medium">O que preenche cada marcador</legend>
-              {error("parameters") ? <p className="text-xs text-brick">{error("parameters")}</p> : null}
+              {error("parameters") ? <p className="text-xs text-destructive">{error("parameters")}</p> : null}
               {Array.from({ length: count }, (_, index) => (
                 <div key={index} className="grid grid-cols-[3rem_minmax(0,1fr)] items-center gap-3">
                   <span className="text-sm text-muted-foreground tabular-nums">{`{{${index + 1}}}`}</span>

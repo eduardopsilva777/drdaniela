@@ -221,7 +221,7 @@ export function ApplyProtocolDialog({
               />
             </FormField>
             {chosen ? (
-              <p className="rounded-xl border border-border bg-surface-raised/40 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
+              <p className="rounded-xl border border-border bg-muted/40 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
                 <span className="text-foreground">{chosen.procedureName}</span> · {chosen.stepsSummary}
               </p>
             ) : null}
@@ -355,7 +355,7 @@ export function CancelProtocolButton({ patientProtocolId, name }: { patientProto
 
   return (
     <>
-      <Button variant="ghost" size="sm" className="text-brick hover:text-brick" onClick={() => setOpen(true)}>
+      <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => setOpen(true)}>
         Cancelar protocolo
       </Button>
       <ConfirmDialog

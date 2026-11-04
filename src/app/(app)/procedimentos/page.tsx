@@ -78,7 +78,7 @@ async function ProceduresTable({ searchParams }: { searchParams: PageProps<"/pro
         </p>
         <Link
           href={includeInactive ? "/procedimentos" : "/procedimentos?inativos=1"}
-          className="text-rose underline-offset-4 hover:underline"
+          className="text-primary underline-offset-4 hover:underline"
         >
           {includeInactive ? "Mostrar só ativos" : "Mostrar inativos"}
         </Link>
@@ -137,7 +137,7 @@ async function ProceduresTable({ searchParams }: { searchParams: PageProps<"/pro
                   </TableCell>
                   <TableCell className="align-top">
                     <StatusBadge
-                      tone={procedure.isActive ? "sage" : "muted"}
+                      tone={procedure.isActive ? "success" : "muted"}
                       label={procedure.isActive ? "Ativo" : "Inativo"}
                     />
                   </TableCell>

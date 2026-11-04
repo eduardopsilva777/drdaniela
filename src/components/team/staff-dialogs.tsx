@@ -62,7 +62,7 @@ function TemporaryPasswordDialog({
       <DialogContent className="sm:max-w-md" onInteractOutside={(event) => event.preventDefault()}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <KeyRound aria-hidden className="size-4 text-rose" />
+            <KeyRound aria-hidden className="size-4 text-primary" />
             Senha provisória de {name}
           </DialogTitle>
           <DialogDescription>
@@ -70,7 +70,7 @@ function TemporaryPasswordDialog({
             primeiro acesso.
           </DialogDescription>
         </DialogHeader>
-        <div className="flex items-center gap-2 rounded-xl border border-border bg-surface-raised/60 p-3">
+        <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/60 p-3">
           <code className="flex-1 font-mono text-base tracking-wider text-foreground select-all">{password}</code>
           <Button
             variant="ghost"
@@ -206,7 +206,7 @@ export function StaffActions({ staff, isSelf }: { staff: StaffRow; isSelf: boole
             <>
               <DropdownMenuSeparator />
               {staff.isActive ? (
-                <DropdownMenuItem className="text-brick focus:text-brick" onSelect={() => setDialog("deactivate")}>
+                <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => setDialog("deactivate")}>
                   Desativar conta
                 </DropdownMenuItem>
               ) : (

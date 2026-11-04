@@ -2,10 +2,10 @@ import { describeAuditAction, type AuditTone } from "@/lib/audit-labels";
 import { cn } from "@/lib/utils";
 
 const TONE_CLASSES: Record<AuditTone, string> = {
-  positive: "bg-sage",
+  positive: "bg-success",
   neutral: "bg-muted-foreground/60",
-  warning: "bg-champagne",
-  critical: "bg-brick",
+  warning: "bg-warning",
+  critical: "bg-destructive",
 };
 
 /** Nome do evento com um marcador de cor que indica a gravidade. */

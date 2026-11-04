@@ -20,7 +20,7 @@ export default function AppError({
   return (
     <PageContainer>
       <Panel role="alert" className="max-w-2xl p-6 sm:p-8">
-        <h1 className="text-lg font-medium text-foreground">Não foi possível carregar esta página</h1>
+        <h1 className="text-title-2 text-foreground">Não foi possível carregar esta página</h1>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
           Algo falhou ao buscar as informações. Tente novamente; se o problema continuar, informe o
           código abaixo à administração da clínica.

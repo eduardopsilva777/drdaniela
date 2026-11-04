@@ -692,30 +692,35 @@ enum MessageOrigin {
 }
 
 model WhatsAppConversation {
-  id                   String           @id @default(uuid(7)) @db.Uuid
+  id                       String           @id @default(uuid(7)) @db.Uuid
   /// Telefone do contato em E.164.
-  contactPhone         String           @unique @map("contact_phone") @db.VarChar(20)
-  contactName          String?          @map("contact_name") @db.VarChar(120)
-  patientId            String?          @map("patient_id") @db.Uuid
-  leadId               String?          @map("lead_id") @db.Uuid
-  unreadCount          Int              @default(0) @map("unread_count")
-  lastMessageAt        DateTime?        @map("last_message_at") @db.Timestamptz(3)
+  contactPhone             String           @unique @map("contact_phone") @db.VarChar(20)
+  contactName              String?          @map("contact_name") @db.VarChar(120)
+  patientId                String?          @map("patient_id") @db.Uuid
+  leadId                   String?          @map("lead_id") @db.Uuid
+  unreadCount              Int              @default(0) @map("unread_count")
+  lastMessageAt            DateTime?        @map("last_message_at") @db.Timestamptz(3)
   /// Última mensagem recebida: define a janela de atendimento de 24h do WhatsApp.
-  lastInboundAt        DateTime?        @map("last_inbound_at") @db.Timestamptz(3)
+  lastInboundAt            DateTime?        @map("last_inbound_at") @db.Timestamptz(3)
   /// Quem responde: o assistente virtual ou a equipe.
-  mode                 ConversationMode @default(ASSISTANT)
-  handoffAt            DateTime?        @map("handoff_at") @db.Timestamptz(3)
+  mode                     ConversationMode @default(ASSISTANT)
+  handoffAt                DateTime?        @map("handoff_at") @db.Timestamptz(3)
   /// Motivo do último encaminhamento para a equipe (sem conteúdo da conversa).
-  handoffReason        String?          @map("handoff_reason") @db.VarChar(200)
+  handoffReason            String?          @map("handoff_reason") @db.VarChar(200)
   /// Etapa do fluxo do assistente e dados coletados (nome, interesse, horários
   /// oferecidos). Nunca contém dados clínicos.
-  assistantState       Json?            @map("assistant_state")
+  assistantState           Json?            @map("assistant_state")
   /// Reserva do processamento: impede duas respostas simultâneas na mesma conversa.
-  assistantLockedUntil DateTime?        @map("assistant_locked_until") @db.Timestamptz(3)
+  assistantLockedUntil     DateTime?        @map("assistant_locked_until") @db.Timestamptz(3)
   /// Descadastro (PARAR/SAIR): bloqueia mensagens proativas para este número.
-  optedOutAt           DateTime?        @map("opted_out_at") @db.Timestamptz(3)
-  createdAt            DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt            DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  optedOutAt               DateTime?        @map("opted_out_at") @db.Timestamptz(3)
+  /// Notas do assistente sobre a conversa (interesse, preferências, próximo passo),
+  /// mantidas pela IA para não perder o contexto quando o histórico sai da janela.
+  /// Mascaradas e CIFRADAS (contexto `assistant_memory:<conversa>`); nunca dados clínicos.
+  assistantMemory          String?          @map("assistant_memory") @db.Text
+  assistantMemoryUpdatedAt DateTime?        @map("assistant_memory_updated_at") @db.Timestamptz(3)
+  createdAt                DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   patient       Patient?          @relation(fields: [patientId], references: [id], onDelete: SetNull)
   lead          Lead?             @relation(fields: [leadId], references: [id], onDelete: SetNull)
@@ -779,6 +784,11 @@ model WhatsAppMessage {
 // Assistente virtual: execuções, base de conhecimento e curadoria
 // -----------------------------------------------------------------------------
 
+enum AssistantRunKind {
+  REPLY // resposta a uma mensagem recebida
+  FOLLOW_UP // acompanhamento proativo dentro da janela de 24h
+}
+
 enum AssistantRunStatus {
   PENDING
   PROCESSING
@@ -807,8 +817,13 @@ enum AssistantOutcome {
 model AssistantRun {
   id               String             @id @default(uuid(7)) @db.Uuid
   conversationId   String             @map("conversation_id") @db.Uuid
+  /// REPLY: resposta a uma mensagem recebida. FOLLOW_UP: mensagem de acompanhamento
+  /// dentro da janela de 24h (sem mensagem de origem; idempotente por `followUpKey`).
+  kind             AssistantRunKind   @default(REPLY)
   /// Mensagem que originou a execução (única: reentregas não geram nova resposta).
-  inboundMessageId String             @unique @map("inbound_message_id") @db.Uuid
+  inboundMessageId String?            @unique @map("inbound_message_id") @db.Uuid
+  /// Chave do acompanhamento (ex.: `nudge:<conversa>:<última mensagem recebida>`): no máximo um por chave.
+  followUpKey      String?            @unique @map("follow_up_key") @db.VarChar(120)
   status           AssistantRunStatus @default(PENDING)
   attempts         Int                @default(0)
   nextAttemptAt    DateTime?          @map("next_attempt_at") @db.Timestamptz(3)
@@ -824,6 +839,18 @@ model AssistantRun {
   flags            String[]           @default([])
   replyMessageId   String?            @unique @map("reply_message_id") @db.Uuid
   latencyMs        Int?               @map("latency_ms")
+  /// Consumo do provedor de IA nesta execução (somatório das chamadas do turno).
+  inputTokens      Int                @default(0) @map("input_tokens")
+  outputTokens     Int                @default(0) @map("output_tokens")
+  cacheReadTokens  Int                @default(0) @map("cache_read_tokens")
+  cacheWriteTokens Int                @default(0) @map("cache_write_tokens")
+  modelCalls       Int                @default(0) @map("model_calls")
+  /// Tempo somado das chamadas ao modelo (ms).
+  modelLatencyMs   Int?               @map("model_latency_ms")
+  /// Custo estimado em milionésimos de dólar (preços configurados em AI_PRICE_*).
+  costMicros       Int                @default(0) @map("cost_micros")
+  /// Ferramentas do CRM usadas pela IA, na ordem (nomes; nunca os argumentos).
+  toolCalls        String[]           @default([]) @map("tool_calls")
   errorCode        String?            @map("error_code") @db.VarChar(60)
   /// Erro já sanitizado (sem dados pessoais, tokens ou conteúdo).
   errorMessage     String?            @map("error_message") @db.VarChar(300)
@@ -831,7 +858,7 @@ model AssistantRun {
   completedAt      DateTime?          @map("completed_at") @db.Timestamptz(3)
 
   conversation   WhatsAppConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  inboundMessage WhatsAppMessage      @relation("AssistantTrigger", fields: [inboundMessageId], references: [id], onDelete: Cascade)
+  inboundMessage WhatsAppMessage?     @relation("AssistantTrigger", fields: [inboundMessageId], references: [id], onDelete: Cascade)
   replyMessage   WhatsAppMessage?     @relation("AssistantReply", fields: [replyMessageId], references: [id], onDelete: SetNull)
 
   @@index([status, nextAttemptAt])

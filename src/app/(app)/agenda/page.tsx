@@ -60,7 +60,7 @@ function AgendaSkeleton() {
   return (
     <div className="space-y-4" aria-hidden>
       <Skeleton className="h-9 w-full max-w-3xl" />
-      <Skeleton className="h-[32rem] w-full rounded-2xl" />
+      <Skeleton className="h-[32rem] w-full rounded-xl" />
     </div>
   );
 }
@@ -181,7 +181,7 @@ async function AgendaContent({ searchParams }: { searchParams: PageProps<"/agend
             <ChevronRight aria-hidden />
           </Link>
         </div>
-        <h2 className="min-w-0 text-base font-medium text-foreground sm:text-lg" aria-live="polite">
+        <h2 className="min-w-0 text-title-3 text-foreground sm:text-title-2" aria-live="polite">
           {rangeTitle(filters, anchor, range.days)}
         </h2>
         <div className="ml-auto flex flex-wrap items-center gap-2">
@@ -231,7 +231,7 @@ async function AgendaContent({ searchParams }: { searchParams: PageProps<"/agend
       </div>
 
       {professionals.length === 0 ? (
-        <p className="rounded-xl border border-champagne/30 bg-champagne/[0.06] px-4 py-3 text-sm text-foreground">
+        <p className="rounded-xl border border-warning/30 bg-warning/[0.06] px-4 py-3 text-sm text-foreground">
           Nenhuma profissional ativa cadastrada. Agendamentos precisam de uma conta com perfil Profissional ou Administração.
         </p>
       ) : null}

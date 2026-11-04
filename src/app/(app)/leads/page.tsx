@@ -233,7 +233,7 @@ async function LeadTable({ filters, timeZone, now }: { filters: LeadFilters; tim
                   <TableCell>
                     <StatusBadge tone={LEAD_PRIORITY_TONES[lead.priority]} label={LEAD_PRIORITY_LABELS[lead.priority]} />
                   </TableCell>
-                  <TableCell className={cn("tabular-nums", due?.overdue ? "text-brick" : "text-muted-foreground")}>
+                  <TableCell className={cn("tabular-nums", due?.overdue ? "text-destructive" : "text-muted-foreground")}>
                     {due ? due.label : "—"}
                   </TableCell>
                   <TableCell className="text-muted-foreground">{lead.ownerName ?? "—"}</TableCell>

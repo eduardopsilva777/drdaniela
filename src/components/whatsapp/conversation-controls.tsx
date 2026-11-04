@@ -89,7 +89,7 @@ export function MessageComposer({
           <SendHorizontal aria-hidden />
         </Button>
       </div>
-      {fieldErrors ? <p className="text-xs text-brick">Revise a mensagem.</p> : null}
+      {fieldErrors ? <p className="text-xs text-destructive">Revise a mensagem.</p> : null}
       <p className="text-xs text-muted-foreground">
         Enter envia · Shift+Enter quebra a linha. Ao responder, a equipe assume a conversa e o assistente para. Não envie
         informações clínicas.
@@ -108,7 +108,7 @@ export function SimulateInbound({ conversationId }: { conversationId: string }) 
   return (
     <form
       noValidate
-      className="flex items-center gap-2 rounded-xl border border-dashed border-lavender/40 bg-lavender/[0.05] p-2"
+      className="flex items-center gap-2 rounded-xl border border-dashed border-info/40 bg-info/[0.05] p-2"
       onSubmit={(event) => {
         event.preventDefault();
         if (body.trim()) run(body);
@@ -271,7 +271,7 @@ export function ReportReplyButton({ messageId, reported }: { messageId: string; 
   useResetOnHide(() => setOpen(false));
 
   if (reported) {
-    return <span className="text-[0.6875rem] text-champagne">Em revisão pela equipe</span>;
+    return <span className="text-[0.6875rem] text-warning">Em revisão pela equipe</span>;
   }
   return (
     <Dialog open={open} onOpenChange={setOpen}>

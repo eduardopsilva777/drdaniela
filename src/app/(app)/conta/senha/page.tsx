@@ -13,7 +13,7 @@ export default function PasswordPage() {
   return (
     <PageContainer className="max-w-2xl">
       <PageHeader title="Sua senha" description="A troca encerra as outras sessões abertas com a sua conta." />
-      <Suspense fallback={<Skeleton className="h-80 rounded-2xl" />}>
+      <Suspense fallback={<Skeleton className="h-80 rounded-xl" />}>
         <PasswordPanel />
       </Suspense>
     </PageContainer>
@@ -25,8 +25,8 @@ async function PasswordPanel() {
   return (
     <Panel className="p-6 sm:p-8">
       {user.mustChangePassword ? (
-        <div role="alert" className="mb-6 flex items-start gap-3 rounded-xl border border-champagne/30 bg-champagne/[0.06] p-4 text-sm">
-          <KeyRound aria-hidden className="mt-0.5 size-4 shrink-0 text-champagne" />
+        <div role="alert" className="mb-6 flex items-start gap-3 rounded-xl border border-warning/30 bg-warning/[0.06] p-4 text-sm">
+          <KeyRound aria-hidden className="mt-0.5 size-4 shrink-0 text-warning" />
           <p className="text-foreground">
             Você entrou com uma senha provisória definida pela administração. Defina uma senha pessoal para continuar usando
             o sistema.

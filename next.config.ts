@@ -67,4 +67,17 @@ const nextConfig: NextConfig = {
 
 export default nextConfig;
 
-import('@opennextjs/cloudflare').then(m => m.initOpenNextCloudflareForDev());
+/*
+ * Simulação local dos recursos do Cloudflare (Miniflare) — só para quem testa o
+ * empacotamento OpenNext (docs/hospedagem.md) e só com OPENNEXT_CLOUDFLARE_DEV=1.
+ * Antes rodava em todo `next dev`/`build`/`start`: em produção Node.js, sem as
+ * dependências de desenvolvimento, a importação falhava como rejeição não tratada
+ * (derruba o processo), e o código da aplicação não usa nenhum recurso do Cloudflare.
+ */
+if (isDev && process.env.OPENNEXT_CLOUDFLARE_DEV === "1") {
+  import("@opennextjs/cloudflare")
+    .then((module) => module.initOpenNextCloudflareForDev())
+    .catch((error: unknown) => {
+      console.warn("OpenNext: simulação do Cloudflare indisponível —", error instanceof Error ? error.message : error);
+    });
+}

@@ -107,7 +107,7 @@ function AppointmentDetails({
     <>
       <SheetHeader className="gap-2 border-b border-border px-6 pt-6 pb-5">
         <StatusBadge tone={APPOINTMENT_STATUS_TONES[item.status]} label={APPOINTMENT_STATUS_LABELS[item.status]} className="self-start" />
-        <SheetTitle className="font-display text-2xl leading-tight font-normal">{item.subject.name}</SheetTitle>
+        <SheetTitle className="text-title-2">{item.subject.name}</SheetTitle>
         <SheetDescription className="tabular-nums">
           {item.dateLabel} · {item.timeLabel}
         </SheetDescription>
@@ -116,7 +116,7 @@ function AppointmentDetails({
       <div className="space-y-6 px-6 py-5">
         <dl className="space-y-3 text-sm">
           <DetailRow label={item.subject.kind === "patient" ? "Paciente" : "Lead"}>
-            <Link href={subjectHref} className="inline-flex items-center gap-1.5 text-rose underline-offset-4 hover:underline">
+            <Link href={subjectHref} className="inline-flex items-center gap-1.5 text-primary underline-offset-4 hover:underline">
               <UserRound aria-hidden className="size-3.5" />
               Abrir {item.subject.kind === "patient" ? "ficha" : "lead"}
             </Link>
@@ -128,7 +128,7 @@ function AppointmentDetails({
           {item.notes ? <DetailRow label="Observações">{item.notes}</DetailRow> : null}
           {item.cancellationReason ? (
             <DetailRow label="Motivo">
-              <span className="text-brick">{item.cancellationReason}</span>
+              <span className="text-destructive">{item.cancellationReason}</span>
             </DetailRow>
           ) : null}
           {item.rescheduledTo ? <DetailRow label="Remarcado para">{item.rescheduledTo.label}</DetailRow> : null}
@@ -224,7 +224,7 @@ function StatusActions({
           <Pencil aria-hidden />
           Editar dados
         </Button>
-        <Button variant="ghost" size="sm" className="text-brick hover:text-brick" onClick={() => onPanel("cancel")}>
+        <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => onPanel("cancel")}>
           Cancelar agendamento
         </Button>
       </div>
@@ -243,7 +243,7 @@ function CancelForm({ item, onBack, onDone }: { item: AgendaItem; onBack: () => 
   return (
     <form
       noValidate
-      className="space-y-4 rounded-xl border border-brick/30 bg-brick/[0.05] p-4"
+      className="space-y-4 rounded-xl border border-destructive/30 bg-destructive/[0.05] p-4"
       onSubmit={(event) => {
         event.preventDefault();
         run(reason);
@@ -410,11 +410,11 @@ function AppointmentHistory({ appointmentId, timeZone }: { appointmentId: string
 
   return (
     <section aria-labelledby="historico-agendamento">
-      <h3 id="historico-agendamento" className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
+      <h3 id="historico-agendamento" className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
         <History aria-hidden className="size-4 text-muted-foreground" />
         Histórico
       </h3>
-      {failed ? <p className="text-sm text-brick">Não foi possível carregar o histórico.</p> : null}
+      {failed ? <p className="text-sm text-destructive">Não foi possível carregar o histórico.</p> : null}
       {!entries && !failed ? <p className="text-sm text-muted-foreground">Carregando…</p> : null}
       {entries ? (
         <ol className="space-y-3">

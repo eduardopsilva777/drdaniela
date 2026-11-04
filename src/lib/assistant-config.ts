@@ -65,6 +65,63 @@ export const assistantMessagesSchema = z.object({
 
 export type AssistantMessages = z.output<typeof assistantMessagesSchema>;
 
+const personaText = (max: number) => z.string().trim().max(max, { error: `Use no máximo ${max} caracteres.` });
+
+export const FORMALITY_LEVELS = ["informal", "balanced", "formal"] as const;
+export type FormalityLevel = (typeof FORMALITY_LEVELS)[number];
+
+export const FORMALITY_LABELS: Record<FormalityLevel, string> = {
+  informal: "Descontraída (próxima, linguagem do dia a dia)",
+  balanced: "Equilibrada (cordial e profissional)",
+  formal: "Formal (\"senhor\"/\"senhora\", sem gírias)",
+};
+
+/**
+ * Identidade e comportamento da IA generativa (motor "agente"). A equipe
+ * descreve QUEM a assistente é e COMO conversa — nunca as frases prontas: cada
+ * resposta é gerada na hora, a partir desta configuração, do contexto do
+ * contato, da base aprovada e das ferramentas do CRM. As regras de segurança do
+ * sistema (não inventar fatos, não orientar clinicamente, confirmação explícita)
+ * prevalecem sobre qualquer texto daqui.
+ */
+export const assistantPersonaSchema = z.object({
+  personality: personaText(1500).min(10, { error: "Descreva a personalidade em uma ou duas frases." }),
+  toneOfVoice: personaText(300),
+  formality: z.enum(FORMALITY_LEVELS),
+  communicationStyle: personaText(600),
+  businessGoals: personaText(1000),
+  newContactApproach: personaText(600),
+  questionStyle: personaText(500),
+  extraLimits: personaText(1000),
+  handoffRules: personaText(800),
+});
+
+export type AssistantPersona = z.output<typeof assistantPersonaSchema>;
+
+/** Limites de custo e de comportamento da IA generativa. */
+export const assistantAgentSchema = z.object({
+  /** Tamanho máximo de cada resposta enviada ao contato. */
+  maxReplyChars: z.number().int().min(200).max(1500),
+  /** Mensagens recentes enviadas ao modelo a cada turno (o resto fica nas notas da conversa). */
+  historyMessages: z.number().int().min(4).max(40),
+  /** Chamadas ao modelo por mensagem recebida (cada uso de ferramenta pede uma nova chamada). */
+  maxModelCallsPerTurn: z.number().int().min(2).max(8),
+  /** Preços do catálogo de procedimentos podem ser informados (senão, só os da base aprovada). */
+  shareCatalogPrices: z.boolean(),
+  /** Gasto máximo estimado por mês (US$). Atingido, o atendimento segue pelo motor por regras. */
+  monthlyBudgetUsd: z.number().min(1).max(10_000),
+  followUp: z.object({
+    /** Mensagem de acompanhamento gerada pela IA quando o contato para de responder (só dentro da janela de 24h). */
+    enabled: z.boolean(),
+    /** Horas de silêncio do contato antes do acompanhamento. */
+    nudgeAfterHours: z.number().int().min(1).max(20),
+    /** Dias sem resposta para avisar a equipe sobre o lead parado (fora da janela, só modelo aprovado). */
+    staleLeadDays: z.number().int().min(1).max(30),
+  }),
+});
+
+export type AssistantAgentSettings = z.output<typeof assistantAgentSchema>;
+
 /** Horários por dia da semana (índice 0 = domingo … 6 = sábado). */
 const weeklyHoursSchema = z.array(z.array(timeRangeSchema).max(3)).length(7);
 
@@ -75,6 +132,13 @@ export const assistantConfigSchema = z.object({
   clinicName: z.string().trim().min(2).max(80),
   /** Horário em que a equipe responde (texto livre, usado em {horario_equipe}). Vazio = não informar. */
   teamHoursText: z.string().trim().max(120),
+  /** Identidade e comportamento da IA generativa (ignorados pelos motores por regras e guiado). */
+  persona: assistantPersonaSchema,
+  agent: assistantAgentSchema,
+  /**
+   * Textos usados pelos motores por regras e guiado e, na IA generativa, só nas
+   * mensagens de segurança (urgência, descadastro, falha) e de consentimento.
+   */
   messages: assistantMessagesSchema,
   qualification: z.array(qualificationQuestionSchema).max(6),
   /** Pergunta, após agendar, se o contato aceita lembretes pelo WhatsApp (consentimento registrado). */
@@ -141,6 +205,33 @@ export const DEFAULT_ASSISTANT_MESSAGES: AssistantMessages = {
   closing: "Por nada! Se precisar de algo, é só chamar.",
 };
 
+export const DEFAULT_ASSISTANT_PERSONA: AssistantPersona = {
+  personality:
+    "Você é a assistente virtual da clínica. É acolhedora, simpática, inteligente e profissional. Conversa naturalmente, sem parecer um robô, entende o que cada pessoa procura e conduz o atendimento com empatia. Nunca inventa informações e sabe quando encaminhar para a equipe.",
+  toneOfVoice: "Caloroso, elegante e próximo, sem exageros nem bajulação.",
+  formality: "balanced",
+  communicationStyle:
+    "Mensagens curtas, como numa conversa de WhatsApp: em geral até três frases e no máximo uma pergunta por vez. Emojis com moderação (no máximo um por mensagem). Sem listas longas nem textos de propaganda.",
+  businessGoals:
+    "Entender o que cada pessoa procura, esclarecer dúvidas com as informações aprovadas e, quando fizer sentido, convidar para uma avaliação. Registrar o interesse para a equipe acompanhar as oportunidades.",
+  newContactApproach:
+    "Acolha, apresente-se como assistente virtual da clínica e descubra com naturalidade o nome e o interesse da pessoa, sem interrogatório.",
+  questionStyle:
+    "Pergunte só o que ajuda a avançar o atendimento, uma coisa de cada vez, e nunca repita perguntas já respondidas.",
+  extraLimits: "Não comente concorrentes. Não ofereça descontos, brindes ou condições que não estejam na base aprovada.",
+  handoffRules:
+    "Encaminhe para a equipe quando a pessoa pedir, em qualquer dúvida de saúde, reclamação ou insatisfação, negociação de valores fora do que está aprovado, ou quando você não tiver a informação.",
+};
+
+export const DEFAULT_ASSISTANT_AGENT: AssistantAgentSettings = {
+  maxReplyChars: 700,
+  historyMessages: 16,
+  maxModelCallsPerTurn: 5,
+  shareCatalogPrices: false,
+  monthlyBudgetUsd: 50,
+  followUp: { enabled: false, nudgeAfterHours: 4, staleLeadDays: 3 },
+};
+
 /** Seg–sex, 9h–18h: apenas ponto de partida — a clínica ajusta antes de ativar o agendamento. */
 const DEFAULT_WEEKLY_HOURS: AssistantConfig["booking"]["weeklyHours"] = [
   [],
@@ -157,6 +248,8 @@ export const DEFAULT_ASSISTANT_CONFIG: AssistantConfig = {
   assistantName: "Assistente virtual",
   clinicName: "Clínica Dra. Daniela Zilioli",
   teamHoursText: "",
+  persona: DEFAULT_ASSISTANT_PERSONA,
+  agent: DEFAULT_ASSISTANT_AGENT,
   messages: DEFAULT_ASSISTANT_MESSAGES,
   qualification: [
     { id: "interesse", field: "interest", question: "Qual procedimento ou tratamento você tem interesse em conhecer?" },
@@ -194,6 +287,12 @@ export function resolveAssistantConfig(stored: unknown): AssistantConfig {
   const merged = {
     ...DEFAULT_ASSISTANT_CONFIG,
     ...value,
+    persona: { ...DEFAULT_ASSISTANT_PERSONA, ...(value.persona ?? {}) },
+    agent: {
+      ...DEFAULT_ASSISTANT_AGENT,
+      ...(value.agent ?? {}),
+      followUp: { ...DEFAULT_ASSISTANT_AGENT.followUp, ...(value.agent?.followUp ?? {}) },
+    },
     messages: { ...DEFAULT_ASSISTANT_MESSAGES, ...(value.messages ?? {}) },
     booking: { ...DEFAULT_ASSISTANT_CONFIG.booking, ...(value.booking ?? {}) },
     proactive: { ...DEFAULT_ASSISTANT_CONFIG.proactive, ...(value.proactive ?? {}) },

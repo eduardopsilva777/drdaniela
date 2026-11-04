@@ -102,13 +102,13 @@ export function ConvertLeadDialog({
                   key={match.id}
                   className={cn(
                     "flex cursor-pointer items-center gap-3 rounded-xl border border-border p-3 text-sm",
-                    mode === "link" && linkId === match.id && "border-rose/50 bg-rose/[0.05]",
+                    mode === "link" && linkId === match.id && "border-primary/50 bg-primary/[0.05]",
                   )}
                 >
                   <input
                     type="radio"
                     name="choice"
-                    className="accent-[var(--rose)]"
+                    className="accent-[var(--primary)]"
                     checked={mode === "link" && linkId === match.id}
                     onChange={() => {
                       setMode("link");
@@ -121,13 +121,13 @@ export function ConvertLeadDialog({
               <label
                 className={cn(
                   "flex cursor-pointer items-center gap-3 rounded-xl border border-border p-3 text-sm",
-                  mode === "create" && "border-rose/50 bg-rose/[0.05]",
+                  mode === "create" && "border-primary/50 bg-primary/[0.05]",
                 )}
               >
                 <input
                   type="radio"
                   name="choice"
-                  className="accent-[var(--rose)]"
+                  className="accent-[var(--primary)]"
                   checked={mode === "create"}
                   onChange={() => setMode("create")}
                 />
@@ -167,7 +167,7 @@ export function ConvertLeadDialog({
             </div>
           ) : null}
 
-          {error && !fieldErrors ? <p className="text-sm text-brick">{error}</p> : null}
+          {error && !fieldErrors ? <p className="text-sm text-destructive">{error}</p> : null}
 
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>

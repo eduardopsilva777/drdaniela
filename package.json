@@ -2,7 +2,7 @@
   "name": "crm-dra-daniela",
   "version": "0.1.0",
   "private": true,
-  "description": "CRM da clínica Dra. Daniela Zilioli",
+  "description": "Clinni — CRM para clínicas de estética",
   "engines": {
     "node": ">=22.12.0"
   },
@@ -29,6 +29,7 @@
     "user:reset-password": "tsx scripts/manage-user.ts reset-password",
     "data:retention": "tsx scripts/retention.ts",
     "data:rotate-key": "tsx scripts/rotate-encryption-key.ts",
+    "assistant:eval": "tsx scripts/assistant-eval.ts",
     "postinstall": "prisma generate",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",

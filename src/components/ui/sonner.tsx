@@ -1,14 +1,24 @@
 "use client"
 
+import { useSyncExternalStore } from "react"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "lucide-react"
 
-// O CRM usa exclusivamente o tema escuro, por isso o tema do Sonner é fixo
-// (dispensa a dependência `next-themes` que o template do shadcn traz).
+// O tema é aplicado pela classe `dark` no <html> (componentes/theme). O Sonner
+// acompanha essa classe — sem a dependência `next-themes` do template do shadcn.
+function subscribeToTheme(onChange: () => void) {
+  const observer = new MutationObserver(onChange)
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] })
+  return () => observer.disconnect()
+}
+
+const currentTheme = () => (document.documentElement.classList.contains("dark") ? "dark" : "light")
+
 const Toaster = ({ ...props }: ToasterProps) => {
+  const theme = useSyncExternalStore(subscribeToTheme, currentTheme, () => "light" as const)
   return (
     <Sonner
-      theme="dark"
+      theme={theme}
       className="toaster group"
       icons={{
         success: (
@@ -37,7 +47,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
       }
       toastOptions={{
         classNames: {
-          toast: "cn-toast",
+          toast: "cn-toast shadow-md",
         },
       }}
       {...props}

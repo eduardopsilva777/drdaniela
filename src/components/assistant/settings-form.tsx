@@ -13,10 +13,14 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useAction } from "@/hooks/use-action";
 import {
+  FORMALITY_LABELS,
+  FORMALITY_LEVELS,
   QUALIFICATION_FIELD_LABELS,
   QUALIFICATION_FIELDS,
   type AssistantConfig,
   type AssistantMessages,
+  type AssistantPersona,
+  type FormalityLevel,
   type QualificationField,
 } from "@/lib/assistant-config";
 import { saveAssistantSettingsAction } from "@/server/actions/assistant";
@@ -42,6 +46,49 @@ const MESSAGE_FIELDS: Array<{ key: keyof AssistantMessages; label: string; hint?
 ];
 
 const WEEKDAYS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+const FORMALITY_OPTIONS: SelectOption[] = FORMALITY_LEVELS.map((value) => ({ value, label: FORMALITY_LABELS[value] }));
+
+/** Campos de texto da personalidade (o que a IA é e como conversa — nunca frases prontas). */
+const PERSONA_FIELDS: Array<{ key: Exclude<keyof AssistantPersona, "formality">; label: string; hint: string; rows: number; max: number }> = [
+  {
+    key: "personality",
+    label: "Personalidade",
+    hint: "Quem é a assistente, em poucas frases. Ela fala em nome da clínica, nunca como a profissional.",
+    rows: 4,
+    max: 1500,
+  },
+  { key: "toneOfVoice", label: "Tom de voz", hint: "Ex.: caloroso e elegante, sem exageros.", rows: 2, max: 300 },
+  {
+    key: "communicationStyle",
+    label: "Estilo de comunicação",
+    hint: "Tamanho das mensagens, uso de emojis, quantas perguntas por vez.",
+    rows: 3,
+    max: 600,
+  },
+  {
+    key: "businessGoals",
+    label: "Objetivos do atendimento",
+    hint: "O que a assistente deve buscar: esclarecer, convidar para avaliação, registrar o interesse…",
+    rows: 3,
+    max: 1000,
+  },
+  { key: "newContactApproach", label: "Como abordar contatos novos", hint: "Acolhimento e o que descobrir primeiro.", rows: 2, max: 600 },
+  { key: "questionStyle", label: "Como fazer perguntas", hint: "Ex.: uma por vez, só quando ajudam a avançar.", rows: 2, max: 500 },
+  {
+    key: "extraLimits",
+    label: "Limites da IA",
+    hint: "O que ela não deve fazer além das regras do sistema (ex.: não comentar concorrentes).",
+    rows: 2,
+    max: 1000,
+  },
+  {
+    key: "handoffRules",
+    label: "Quando transferir para a equipe",
+    hint: "Situações em que a conversa vai para uma pessoa. Dúvidas de saúde e pedidos de atendente sempre vão.",
+    rows: 3,
+    max: 800,
+  },
+];
 const FIELD_OPTIONS: SelectOption[] = QUALIFICATION_FIELDS.map((value) => ({ value, label: QUALIFICATION_FIELD_LABELS[value] }));
 
 function NumberField({
@@ -80,7 +127,7 @@ function Section({ title, description, children }: { title: string; description?
   return (
     <Panel className="space-y-5 p-5 sm:p-6">
       <div className="space-y-1">
-        <h2 className="text-base font-medium text-foreground">{title}</h2>
+        <h2 className="text-title-3 text-foreground">{title}</h2>
         {description ? <p className="max-w-[70ch] text-sm text-muted-foreground">{description}</p> : null}
       </div>
       {children}
@@ -93,11 +140,14 @@ export function AssistantSettingsForm({
   procedures,
   professionals,
   readOnly,
+  engine,
 }: {
   initial: AssistantConfig;
   procedures: SelectOption[];
   professionals: SelectOption[];
   readOnly: boolean;
+  /** Motor ativo no servidor (AI_PROVIDER/AI_ENGINE): indica quais seções valem agora. */
+  engine: "agent" | "guided" | "rules" | "disabled";
 }) {
   const [config, setConfig] = useState<AssistantConfig>(initial);
   const { run, pending } = useAction(saveAssistantSettingsAction);
@@ -109,6 +159,16 @@ export function AssistantSettingsForm({
     setConfig((current) => ({ ...current, proactive: { ...current.proactive, [key]: value } }));
   const updateLimits = <K extends keyof AssistantConfig["limits"]>(key: K, value: AssistantConfig["limits"][K]) =>
     setConfig((current) => ({ ...current, limits: { ...current.limits, [key]: value } }));
+  const updatePersona = <K extends keyof AssistantPersona>(key: K, value: AssistantPersona[K]) =>
+    setConfig((current) => ({ ...current, persona: { ...current.persona, [key]: value } }));
+  const updateAgent = <K extends keyof AssistantConfig["agent"]>(key: K, value: AssistantConfig["agent"][K]) =>
+    setConfig((current) => ({ ...current, agent: { ...current.agent, [key]: value } }));
+  const updateFollowUp = <K extends keyof AssistantConfig["agent"]["followUp"]>(key: K, value: AssistantConfig["agent"]["followUp"][K]) =>
+    setConfig((current) => ({ ...current, agent: { ...current.agent, followUp: { ...current.agent.followUp, [key]: value } } }));
+  const agentActive = engine === "agent";
+  const engineNote = agentActive
+    ? null
+    : "A IA conversacional não está ativa neste servidor (AI_PROVIDER=anthropic e AI_ENGINE=agent). Estas configurações ficam salvas e passam a valer quando ela for ativada.";
 
   function updateHours(day: number, index: number, part: "start" | "end", value: string) {
     setConfig((current) => {
@@ -148,7 +208,7 @@ export function AssistantSettingsForm({
       <fieldset disabled={readOnly} className="space-y-5">
         <Section
           title="Geral"
-          description="O assistente se apresenta como assistente virtual da clínica — nunca como a Dra. Daniela — e responde só com a base de conhecimento aprovada."
+          description="O assistente se apresenta como assistente virtual da clínica — nunca como a profissional ou alguém da equipe — e responde só com a base de conhecimento aprovada."
         >
           <label className="flex items-center gap-3 text-sm text-foreground">
             <Switch checked={config.enabled} onCheckedChange={(checked) => update("enabled", checked)} />
@@ -173,8 +233,126 @@ export function AssistantSettingsForm({
         </Section>
 
         <Section
-          title="Mensagens"
-          description="Marcadores disponíveis: {assistente}, {clinica}, {nome}, {horario_equipe}; nas confirmações de agenda também {data}, {hora} e {procedimento}."
+          title="Personalidade e objetivos"
+          description="Descreva quem é a assistente e como ela conversa. Com a IA conversacional, cada resposta é escrita na hora a partir disto, do contexto do contato e da base aprovada — não é preciso cadastrar frases prontas. As regras de segurança do sistema (não inventar informações, não orientar sobre saúde, confirmar antes de agendar) sempre prevalecem."
+        >
+          {engineNote ? <p className="rounded-lg border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">{engineNote}</p> : null}
+          <div className="grid gap-4 lg:grid-cols-2">
+            {PERSONA_FIELDS.map((field) => (
+              <FormField
+                key={field.key}
+                label={field.label}
+                htmlFor={`settings-persona-${field.key}`}
+                description={field.hint}
+                optional={field.key !== "personality"}
+              >
+                <Textarea
+                  id={`settings-persona-${field.key}`}
+                  rows={field.rows}
+                  maxLength={field.max}
+                  value={config.persona[field.key]}
+                  onChange={(event) => updatePersona(field.key, event.target.value)}
+                />
+              </FormField>
+            ))}
+            <FormField label="Grau de formalidade" htmlFor="settings-persona-formality">
+              <FormSelect
+                id="settings-persona-formality"
+                name="personaFormality"
+                value={config.persona.formality}
+                options={FORMALITY_OPTIONS}
+                onValueChange={(value) => updatePersona("formality", value as FormalityLevel)}
+              />
+            </FormField>
+          </div>
+        </Section>
+
+        <Section
+          title="IA conversacional: limites e custos"
+          description="Controlam o tamanho das respostas, o contexto enviado à IA e o gasto. Ao atingir o limite mensal, o assistente passa a responder pelo motor por regras (só textos aprovados) e a equipe recebe um aviso."
+        >
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <NumberField
+              id="settings-agent-reply"
+              label="Tamanho máximo da resposta (caracteres)"
+              value={config.agent.maxReplyChars}
+              min={200}
+              max={1500}
+              onChange={(value) => updateAgent("maxReplyChars", value)}
+            />
+            <NumberField
+              id="settings-agent-history"
+              label="Mensagens recentes enviadas à IA"
+              description="O restante fica resumido nas notas da conversa."
+              value={config.agent.historyMessages}
+              min={4}
+              max={40}
+              onChange={(value) => updateAgent("historyMessages", value)}
+            />
+            <NumberField
+              id="settings-agent-calls"
+              label="Etapas de IA por mensagem"
+              description="Cada consulta ao CRM usa uma etapa."
+              value={config.agent.maxModelCallsPerTurn}
+              min={2}
+              max={8}
+              onChange={(value) => updateAgent("maxModelCallsPerTurn", value)}
+            />
+            <NumberField
+              id="settings-agent-budget"
+              label="Limite mensal estimado (US$)"
+              value={config.agent.monthlyBudgetUsd}
+              min={1}
+              max={10000}
+              onChange={(value) => updateAgent("monthlyBudgetUsd", value)}
+            />
+          </div>
+          <label className="flex items-start gap-3 text-sm text-foreground">
+            <Switch className="mt-0.5" checked={config.agent.shareCatalogPrices} onCheckedChange={(checked) => updateAgent("shareCatalogPrices", checked)} />
+            <span>
+              A IA pode informar os preços do catálogo de procedimentos
+              <span className="block text-xs text-muted-foreground">
+                Desligado, só valores publicados na base de conhecimento (aprovados) são informados.
+              </span>
+            </span>
+          </label>
+        </Section>
+
+        <Section
+          title="Recuperação de oportunidades"
+          description="Quando um contato para de responder, a IA pode enviar UMA mensagem curta retomando o assunto — só dentro da janela de 24 horas do WhatsApp, nos dias e horários permitidos abaixo, respeitando os limites por contato e os descadastros. Fora da janela, nada é enviado: a equipe recebe uma tarefa para decidir (modelo aprovado pela Meta ou ligação)."
+        >
+          <label className="flex items-center gap-3 text-sm text-foreground">
+            <Switch checked={config.agent.followUp.enabled} onCheckedChange={(checked) => updateFollowUp("enabled", checked)} />
+            Ativar acompanhamento de contatos que pararam de responder
+          </label>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <NumberField
+              id="settings-followup-hours"
+              label="Horas de silêncio antes do acompanhamento"
+              value={config.agent.followUp.nudgeAfterHours}
+              min={1}
+              max={20}
+              onChange={(value) => updateFollowUp("nudgeAfterHours", value)}
+            />
+            <NumberField
+              id="settings-followup-stale"
+              label="Dias sem resposta para avisar a equipe"
+              value={config.agent.followUp.staleLeadDays}
+              min={1}
+              max={30}
+              onChange={(value) => updateFollowUp("staleLeadDays", value)}
+            />
+          </div>
+        </Section>
+
+        <Section
+          title={agentActive ? "Mensagens de segurança e dos motores por regras" : "Mensagens"}
+          description={
+            agentActive
+              ? "Com a IA conversacional, estes textos só são usados em situações de segurança (urgência de saúde, descadastro, falha), na pergunta de consentimento e quando o limite mensal faz o motor por regras assumir. Marcadores: {assistente}, {clinica}, {nome}, {horario_equipe}, {data}, {hora}, {procedimento}."
+              : "Marcadores disponíveis: {assistente}, {clinica}, {nome}, {horario_equipe}; nas confirmações de agenda também {data}, {hora} e {procedimento}."
+          }
         >
           <div className="grid gap-4 lg:grid-cols-2">
             {MESSAGE_FIELDS.map((field) => (
@@ -193,7 +371,11 @@ export function AssistantSettingsForm({
 
         <Section
           title="Perguntas de qualificação"
-          description="Feitas uma por vez a novos contatos, depois do nome, para registrar o lead. Colete só o necessário (LGPD) e nunca pergunte sobre saúde."
+          description={
+            agentActive
+              ? "Usadas pelos motores por regras e guiado. A IA conversacional descobre o interesse naturalmente, guiada pelos objetivos acima. Colete só o necessário (LGPD) e nunca pergunte sobre saúde."
+              : "Feitas uma por vez a novos contatos, depois do nome, para registrar o lead. Colete só o necessário (LGPD) e nunca pergunte sobre saúde."
+          }
         >
           <ol className="space-y-3">
             {config.qualification.map((question, index) => (

@@ -235,14 +235,14 @@ export async function sendTemplateMessage(
 
 /**
  * Mensagem automática de TEXTO (resposta do assistente, confirmação de
- * descadastro). Só dentro da janela de 24h. Idempotente pela chave: a mesma
+ * descadastro, acompanhamento gerado pela IA). Só dentro da janela de 24h. Idempotente pela chave: a mesma
  * resposta nunca é registrada nem enviada duas vezes. Falha temporária fica
  * pendente para reenvio com espera crescente (`retryAutomatedMessages`).
  */
 export async function deliverAutomatedText(
   db: DbClient,
   provider: WhatsAppProvider | null,
-  input: { conversationId: string; body: string; origin: "ASSISTANT" | "SYSTEM"; idempotencyKey: string },
+  input: { conversationId: string; body: string; origin: "ASSISTANT" | "SYSTEM" | "FOLLOW_UP"; idempotencyKey: string },
   now: Date = new Date(),
   keyring: Keyring | null = getContentKeyring(),
 ): Promise<{ messageId: string | null; status: "SENT" | "SIMULATED" | "PENDING" | "FAILED" | "SKIPPED"; reason?: string }> {
@@ -607,7 +607,7 @@ export async function eraseConversationContent(db: DbClient, actor: Actor, conve
     await tx.knowledgeGap.deleteMany({ where: { conversationId } });
     await tx.whatsAppConversation.update({
       where: { id: conversationId },
-      data: { contactName: null, assistantState: { v: 1 }, unreadCount: 0 },
+      data: { contactName: null, assistantState: { v: 1 }, assistantMemory: null, assistantMemoryUpdatedAt: null, unreadCount: 0 },
     });
     await recordAudit(tx, {
       ...auditContext(actor),

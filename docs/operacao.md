@@ -36,7 +36,9 @@ Validada na inicialização (`src/server/env.ts`): valores inválidos impedem o 
 | `APP_URL` ausente ou sem `https://` | Sem HSTS e `upgrade-insecure-requests` | sim |
 | `DATA_ENCRYPTION_KEY` ausente | Observações de pacientes indisponíveis | sim |
 | `DATA_ENCRYPTION_KEY_PREVIOUS` definida | Rotação em andamento | sim |
-| `CRON_SECRET` ausente | `/api/jobs/reminders` responde 404; fila parada | sim |
+| `CRON_SECRET` ausente | `/api/jobs/automation` (e `/api/jobs/reminders`) responde 404; fila parada | sim |
+| `AI_PROVIDER=anthropic` | Trechos mascarados das conversas vão à Anthropic | sim (confirme contrato e base legal) |
+| `AI_PROVIDER=anthropic` sem `ANTHROPIC_API_KEY` | **Recusado** | erro |
 | `cloud_api` sem os modelos de lembrete | Lembretes falham com aviso | sim |
 | `WHATSAPP_PROVIDER=development` | **Recusado** em produção | erro |
 | `cloud_api` sem credenciais | **Recusado** | erro |
@@ -49,7 +51,7 @@ Pontos que dependem da infraestrutura:
 
 ## 3. Agendador da fila de lembretes
 
-A fila é processada por `POST /api/jobs/reminders` (também aceita `GET`) com `Authorization: Bearer $CRON_SECRET`. Execuções simultâneas são seguras (reserva com `SKIP LOCKED`); reservas presas há mais de 15 minutos voltam para a fila. **Recomendação: a cada 5 minutos.** A resposta é um resumo JSON (`claimed`, `sent`, `simulated`, `retried`, `failed`, `cancelled`, `skippedReason`). Com `WHATSAPP_PROVIDER=disabled` nada é enviado (`skippedReason`) — é seguro manter o agendador ligado desde o início.
+O ciclo de automação é processado por `POST /api/jobs/automation` (também aceita `GET`; `/api/jobs/reminders` continua funcionando como sinônimo) com `Authorization: Bearer $CRON_SECRET`: lembretes e etapas de acompanhamento, recuperação de oportunidades (acompanhamentos da IA e tarefas para leads parados, se ativados), execuções pendentes do assistente e reenvios. Execuções simultâneas são seguras (reserva com `SKIP LOCKED`); reservas presas voltam para a fila. **Recomendação: a cada 5 minutos.** A resposta é um resumo JSON (`reminders`, `followUps`, `assistant`, `messages`). Com `WHATSAPP_PROVIDER=disabled` nada é enviado — é seguro manter o agendador ligado desde o início.
 
 Escolha **uma** das opções:
 
@@ -145,6 +147,16 @@ Observações:
 
 Se a simulação apontar observações ilegíveis, **pare**: provavelmente foram gravadas com outra chave (configuração errada no passado). Localize a chave correta antes de seguir; o script nunca altera notas que não consegue ler.
 
+## 5.1 IA conversacional (ativação e custos)
+
+1. Contrato com a Anthropic e base legal para a transferência internacional (LGPD art. 33); registre no relatório de impacto.
+2. `AI_PROVIDER=anthropic`, `AI_ENGINE=agent`, `ANTHROPIC_API_KEY` e, se mudar de modelo, os preços `AI_PRICE_*`.
+3. Rode `npm run assistant:eval -- --confirm-costs` (CRM simulado, nada é gravado) e revise as conversas.
+4. Configure em Assistente › Configurações: personalidade, limite mensal de gasto, agendamento pelo assistente e, se desejado, recuperação de oportunidades.
+5. Homologue com números de teste antes de atender contatos reais.
+
+Acompanhe em Assistente › Visão geral (gasto do mês × limite, ferramentas usadas, falhas por tipo) e Registros (cada execução). Ao atingir o limite mensal, o motor por regras assume e a equipe recebe uma tarefa. Para desligar a IA imediatamente: `AI_PROVIDER=rules` (ou `disabled`) + reinício. Detalhes: [assistente-ia.md](assistente-ia.md).
+
 ## 6. Retenção de dados
 
 `npm run data:retention` simula; `-- --apply` executa e audita (sugestão: mensalmente, pelo mesmo agendador). Remove apenas dados técnicos: sessões expiradas, tentativas de login com mais de 90 dias e registros de webhook com mais de 90 dias. Prazos para dados de pacientes, leads, agenda e conversas — e a anonimização — dependem de decisão jurídica da clínica ([seguranca-e-lgpd.md](seguranca-e-lgpd.md#retenção-de-dados)).
@@ -173,3 +185,5 @@ Se a simulação apontar observações ilegíveis, **pare**: provavelmente foram
 | Conta da equipe comprometida | Tela Equipe: **desativar** (encerra sessões na hora) e gerar senha provisória; revise a auditoria da conta. |
 | Ninguém consegue entrar como administração | No servidor: `npm run user:reset-password -- --email …` ou `npm run user:create -- --role ADMIN`. |
 | Mensagens de WhatsApp enviadas por engano | Desative imediatamente: `WHATSAPP_PROVIDER=disabled` + deploy; cancele lembretes pendentes na tela; avalie comunicação aos titulares. |
+| IA respondendo de forma inadequada | `AI_PROVIDER=rules` (ou `disabled`) + reinício; revise Registros e Pendências; ajuste a personalidade/base e rode `assistant:eval` antes de religar. |
+| Falhas seguidas do provedor de IA (`provider_unavailable`, `timeout`) | A fila tenta de novo (3 vezes) e depois transfere para a equipe com aviso ao contato. Verifique o status da Anthropic e `ANTHROPIC_API_KEY` (`auth_error`). |

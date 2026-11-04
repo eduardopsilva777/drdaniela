@@ -4,6 +4,7 @@ import { AppHeader } from "@/components/layout/app-header";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { SidebarAdminNav } from "@/components/layout/sidebar-admin-nav";
 import { SidebarUser, SidebarUserSkeleton } from "@/components/layout/sidebar-user";
+import { SidebarWorkspace, SidebarWorkspaceSkeleton } from "@/components/layout/sidebar-workspace";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 
 /**
@@ -21,6 +22,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         Pular para o conteúdo
       </a>
       <AppSidebar
+        workspace={
+          <Suspense fallback={<SidebarWorkspaceSkeleton />}>
+            <SidebarWorkspace />
+          </Suspense>
+        }
         adminNav={
           <Suspense fallback={null}>
             <SidebarAdminNav />

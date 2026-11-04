@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowDownRight, ArrowUpRight, CalendarClock, Minus } from "lucide-react";
+import { AlertTriangle, ArrowDownRight, ArrowUpRight, CalendarClock, Circle, CircleCheck, Minus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
@@ -32,6 +32,7 @@ import { cn } from "@/lib/utils";
 import { checkPermission, requireUser } from "@/server/auth/dal";
 import { getServerEnv } from "@/server/env";
 import { getRecentAccessEvents } from "@/server/queries/audit";
+import { getClinicSetupSteps, type ClinicSetupStep } from "@/server/queries/clinic";
 import { getCommercialPerformance, getOperationalSnapshot } from "@/server/queries/dashboard";
 import { getUpcomingCommercialActions } from "@/server/queries/leads";
 
@@ -49,6 +50,10 @@ export default function DashboardPage(props: PageProps<"/dashboard">) {
         <Greeting />
       </Suspense>
 
+      <Suspense fallback={null}>
+        <ClinicSetupPanel />
+      </Suspense>
+
       <Suspense fallback={<SectionFallback tiles={6} />}>
         <TodaySection />
       </Suspense>
@@ -56,7 +61,7 @@ export default function DashboardPage(props: PageProps<"/dashboard">) {
       <section aria-labelledby="desempenho-titulo" className="mt-12">
         <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 id="desempenho-titulo" className="text-lg font-medium text-foreground">
+            <h2 id="desempenho-titulo" className="text-title-2 text-foreground">
               Desempenho comercial
             </h2>
             <p className="text-sm text-muted-foreground">Leads criados no período e o que aconteceu com eles.</p>
@@ -94,6 +99,70 @@ async function Greeting() {
   );
 }
 
+const SETUP_STEPS: Record<ClinicSetupStep["key"], { title: string; description: string; href: string }> = {
+  profile: { title: "Dados da clínica", description: "Nome, horários e a personalidade do assistente.", href: "/assistente?aba=configuracoes" },
+  procedures: { title: "Procedimentos", description: "Catálogo com duração, preço e intervalo de retorno.", href: "/procedimentos" },
+  team: { title: "Equipe", description: "Contas da recepção e das profissionais.", href: "/equipe" },
+  knowledge: { title: "Base de conhecimento", description: "Respostas aprovadas que o assistente usa.", href: "/assistente?aba=conhecimento" },
+};
+
+/**
+ * Configuração inicial da clínica (onboarding) para a administração. Cada etapa
+ * é conferida no banco; o painel some quando todas estão concluídas.
+ */
+async function ClinicSetupPanel() {
+  const user = await requireUser();
+  if (!hasPermission(user.role, "assistant:configure")) return null;
+  const steps = await getClinicSetupSteps();
+  const done = steps.filter((step) => step.done).length;
+  if (done === steps.length) return null;
+
+  return (
+    <Panel aria-labelledby="configuracao-titulo" className="mb-8 p-5 sm:p-6">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="space-y-1">
+          <p className="text-overline text-primary uppercase">Configuração inicial</p>
+          <h2 id="configuracao-titulo" className="text-title-3 text-foreground">
+            Deixe a clínica pronta para usar o Clinni
+          </h2>
+        </div>
+        <p className="text-sm text-muted-foreground tabular-nums">
+          {done} de {steps.length} etapas concluídas
+        </p>
+      </div>
+      <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden>
+        <div className="h-full rounded-full bg-primary" style={{ width: `${(done / steps.length) * 100}%` }} />
+      </div>
+      <ol className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {steps.map((step) => {
+          const copy = SETUP_STEPS[step.key];
+          return (
+            <li key={step.key} className="flex gap-3 rounded-lg border border-border px-3.5 py-3">
+              {step.done ? (
+                <CircleCheck aria-hidden className="mt-0.5 size-[1.125rem] shrink-0 text-success" />
+              ) : (
+                <Circle aria-hidden className="mt-0.5 size-[1.125rem] shrink-0 text-muted-foreground" />
+              )}
+              <div className="min-w-0 space-y-0.5">
+                <p className="text-sm font-semibold text-foreground">
+                  {copy.title}
+                  <span className="sr-only">{step.done ? " — concluída" : " — pendente"}</span>
+                </p>
+                <p className="text-xs leading-relaxed text-muted-foreground">{copy.description}</p>
+                {step.done ? null : (
+                  <Link href={copy.href} className="inline-block pt-1 text-[0.8125rem] font-semibold text-primary underline-offset-4 hover:underline">
+                    Configurar
+                  </Link>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    </Panel>
+  );
+}
+
 function GreetingFallback() {
   return (
     <div className="space-y-3 pb-8 lg:pb-10" aria-hidden>
@@ -108,10 +177,10 @@ function SectionFallback({ tiles }: { tiles: number }) {
     <div className="space-y-6" aria-hidden>
       <div className={cn("grid gap-3 sm:grid-cols-2", tiles > 4 ? "lg:grid-cols-3 xl:grid-cols-6" : "lg:grid-cols-4")}>
         {Array.from({ length: tiles }, (_, index) => (
-          <Skeleton key={index} className="h-[6.5rem] rounded-2xl" />
+          <Skeleton key={index} className="h-[6.5rem] rounded-xl" />
         ))}
       </div>
-      <Skeleton className="h-72 rounded-2xl" />
+      <Skeleton className="h-72 rounded-xl" />
     </div>
   );
 }
@@ -132,19 +201,19 @@ function StatTile({
   value: string;
   href: string;
   hint?: ReactNode;
-  hintTone?: "muted" | "brick";
+  hintTone?: "muted" | "danger";
   delta?: { change: number | null; upIsGood: boolean; label: string };
 }) {
   return (
     <Link
       href={href}
-      className="group flex flex-col rounded-2xl border border-border bg-card px-5 py-4 outline-none transition-colors hover:border-rose/40 focus-visible:ring-2 focus-visible:ring-ring"
+      className="group flex flex-col rounded-xl border border-border bg-card px-[1.125rem] py-4 outline-none transition-colors hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-ring"
     >
       <span className="text-sm text-muted-foreground">{label}</span>
-      <span className="mt-1.5 text-3xl font-semibold tracking-tight text-foreground">{value}</span>
+      <span className="mt-1.5 text-metric text-foreground tabular-nums">{value}</span>
       {delta ? <Delta {...delta} /> : null}
       {hint ? (
-        <span className={cn("mt-1 text-xs", hintTone === "brick" ? "text-brick" : "text-muted-foreground")}>{hint}</span>
+        <span className={cn("mt-1 text-xs", hintTone === "danger" ? "text-destructive" : "text-muted-foreground")}>{hint}</span>
       ) : null}
     </Link>
   );
@@ -155,7 +224,7 @@ function Delta({ change, upIsGood, label }: { change: number | null; upIsGood: b
   const Icon = change > 0 ? ArrowUpRight : change < 0 ? ArrowDownRight : Minus;
   const good = change === 0 ? null : change > 0 === upIsGood;
   return (
-    <span className={cn("mt-1 inline-flex items-center gap-1 text-xs", good === null ? "text-muted-foreground" : good ? "text-sage" : "text-brick")}>
+    <span className={cn("mt-1 inline-flex items-center gap-1 text-xs", good === null ? "text-muted-foreground" : good ? "text-success" : "text-destructive")}>
       <Icon aria-hidden className="size-3.5" />
       {change > 0 ? "+" : ""}
       {change}% <span className="text-muted-foreground">{label}</span>
@@ -168,7 +237,7 @@ function Card({ title, action, children, className }: { title: string; action?: 
   return (
     <Panel aria-labelledby={id} className={cn("flex min-w-0 flex-col p-6", className)}>
       <div className="mb-4 flex items-baseline justify-between gap-3">
-        <h3 id={id} className="text-base font-medium text-foreground">
+        <h3 id={id} className="text-title-3 text-foreground">
           {title}
         </h3>
         {action}
@@ -180,7 +249,7 @@ function Card({ title, action, children, className }: { title: string; action?: 
 
 function CardLink({ href, children }: { href: string; children: ReactNode }) {
   return (
-    <Link href={href} className="shrink-0 text-sm text-rose underline-offset-4 hover:underline">
+    <Link href={href} className="shrink-0 text-sm text-primary underline-offset-4 hover:underline">
       {children}
     </Link>
   );
@@ -193,7 +262,7 @@ function BarRow({ label, value, share, width }: { label: string; value: number; 
       <span className="truncate text-foreground/90">{label}</span>
       <span className="h-2.5 min-w-0">
         <span
-          className="block h-full rounded-r-[4px] bg-chart-accent"
+          className="block h-full rounded-r-[4px] bg-chart-1"
           style={{ width: `${Math.max(width, value > 0 ? 1.5 : 0)}%` }}
         />
       </span>
@@ -246,7 +315,7 @@ async function TodaySection() {
           value={NUMBER.format(snapshot.pendingReturns)}
           href="/protocolos"
           hint={snapshot.overdueReturns > 0 ? `${snapshot.overdueReturns} atrasado(s)` : "Nenhum atrasado"}
-          hintTone={snapshot.overdueReturns > 0 ? "brick" : "muted"}
+          hintTone={snapshot.overdueReturns > 0 ? "danger" : "muted"}
         />
         <StatTile label="Pacientes ativos" value={NUMBER.format(snapshot.activePatients)} href="/pacientes" />
         <StatTile
@@ -272,7 +341,7 @@ async function TodaySection() {
                     <span
                       aria-hidden
                       className="mt-1.5 size-2 shrink-0 rounded-full"
-                      style={{ backgroundColor: item.procedure?.color ?? "var(--chart-accent)" }}
+                      style={{ backgroundColor: item.procedure?.color ?? "var(--chart-1)" }}
                     />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-foreground">{name}</span>
@@ -300,7 +369,7 @@ async function TodaySection() {
                 const due = lead.nextActionAt ? describeDue(lead.nextActionAt, timeZone, now) : null;
                 return (
                   <li key={lead.id} className="flex items-start gap-3 text-sm">
-                    <CalendarClock aria-hidden className={cn("mt-0.5 size-4 shrink-0", due?.overdue ? "text-brick" : "text-muted-foreground")} />
+                    <CalendarClock aria-hidden className={cn("mt-0.5 size-4 shrink-0", due?.overdue ? "text-destructive" : "text-muted-foreground")} />
                     <span className="min-w-0 flex-1">
                       <Link href={`/leads/${lead.id}`} className="block truncate text-foreground hover:underline hover:underline-offset-4">
                         {lead.name}
@@ -310,7 +379,7 @@ async function TodaySection() {
                       </span>
                     </span>
                     {due ? (
-                      <span className={cn("shrink-0 text-xs tabular-nums", due.overdue ? "text-brick" : "text-muted-foreground")}>
+                      <span className={cn("shrink-0 text-xs tabular-nums", due.overdue ? "text-destructive" : "text-muted-foreground")}>
                         {due.label}
                       </span>
                     ) : null}
@@ -330,7 +399,7 @@ async function TodaySection() {
                 const dueKey = dbDateToKey(item.dueDate);
                 return (
                   <li key={item.id} className="flex items-start gap-3 text-sm">
-                    <AlertTriangle aria-label="Atrasado" className="mt-0.5 size-4 shrink-0 text-brick" />
+                    <AlertTriangle aria-label="Atrasado" className="mt-0.5 size-4 shrink-0 text-destructive" />
                     <span className="min-w-0 flex-1">
                       <Link
                         href={`/pacientes/${item.patient.id}?aba=protocolos`}
@@ -342,7 +411,7 @@ async function TodaySection() {
                         {item.title} · previsto {formatKeyDate(dueKey)}
                       </span>
                     </span>
-                    <span className="shrink-0 text-xs text-brick tabular-nums">{describeDueDateKey(dueKey, today).label}</span>
+                    <span className="shrink-0 text-xs text-destructive tabular-nums">{describeDueDateKey(dueKey, today).label}</span>
                   </li>
                 );
               })}
@@ -473,10 +542,10 @@ async function RecentAccessPanel() {
   return (
     <Panel aria-labelledby="acessos-titulo" className="mt-12 p-6">
       <div className="flex items-baseline justify-between gap-4">
-        <h2 id="acessos-titulo" className="text-base font-medium text-foreground">
+        <h2 id="acessos-titulo" className="text-title-3 text-foreground">
           Acessos recentes
         </h2>
-        <Link href="/auditoria" className="text-sm text-rose underline-offset-4 hover:underline">
+        <Link href="/auditoria" className="text-sm text-primary underline-offset-4 hover:underline">
           Ver auditoria
         </Link>
       </div>

@@ -60,7 +60,7 @@ export function DeleteLeadButton({ leadId, leadName }: { leadId: string; leadNam
 
   return (
     <>
-      <Button variant="ghost" className="text-brick hover:text-brick" onClick={() => setOpen(true)}>
+      <Button variant="ghost" className="text-destructive hover:text-destructive" onClick={() => setOpen(true)}>
         <Trash2 aria-hidden />
         Excluir
       </Button>

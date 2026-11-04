@@ -11,7 +11,7 @@ export interface TrendDatum {
 }
 
 const config = {
-  value: { label: "Leads novos", color: "var(--chart-accent)" },
+  value: { label: "Leads novos", color: "var(--chart-1)" },
 } satisfies ChartConfig;
 
 /**

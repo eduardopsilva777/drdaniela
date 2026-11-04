@@ -53,14 +53,16 @@ export interface TurnPorts {
   findSlots(request: { preference: SchedulePreference; reschedule?: AppointmentOption }): Promise<SlotOffer | null>;
   /** Cria ou atualiza o lead do contato (sem duplicar). false quando o contato já é paciente. */
   ensureLead(data: { name: string; interest: string | null; procedureId: string | null }): Promise<boolean>;
-  book(slot: StoredSlot): Promise<PortResult>;
+  /** `returnId`: retorno previsto que o agendamento atende (só pacientes; encerra a cadência de lembretes do retorno). */
+  book(slot: StoredSlot, options?: { returnId?: string | null }): Promise<PortResult>;
   listUpcomingAppointments(): Promise<AppointmentOption[]>;
   reschedule(appointmentId: string, slot: StoredSlot): Promise<PortResult>;
   cancelAppointment(appointmentId: string): Promise<PortResult>;
   optOut(): Promise<void>;
   optIn(): Promise<void>;
   grantRemindersConsent(): Promise<void>;
-  handoff(reason: string, options: { urgent: boolean }): Promise<void>;
+  /** `summary`: resumo da conversa para a tarefa da equipe (sem dados de saúde). */
+  handoff(reason: string, options: { urgent: boolean; summary?: string | null }): Promise<void>;
   registerQualifiedLead(summary: {
     nextStep: "schedule" | "contact";
     interest: string | null;
@@ -112,7 +114,7 @@ const EXPECTATIONS: Partial<Record<AssistantStep, Expectation>> = {
 
 const QUESTION_START = /^(qual|quais|como|quando|onde|quanto|quantos|quantas|voces|vcs|tem|pode|posso|e possivel|existe|fazem|aceitam|atendem|trabalham)\b/;
 
-const CONSENT_GRANTED_TEXT =
+export const CONSENT_GRANTED_TEXT =
   "Combinado! Você vai receber por aqui os lembretes e avisos dos seus atendimentos. Para parar, envie PARAR.";
 
 class Turn {
@@ -158,7 +160,7 @@ class Turn {
     this.say(fillTemplate(this.config.messages[key], this.vars(extra)));
   }
 
-  /** Na primeira resposta da conversa o assistente se apresenta (nunca como a Dra. Daniela). */
+  /** Na primeira resposta da conversa o assistente se apresenta (nunca como a profissional da clínica). */
   introduceIfNeeded() {
     if (this.state.greeted) return;
     this.state.greeted = true;

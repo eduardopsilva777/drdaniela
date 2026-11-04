@@ -370,6 +370,10 @@ const GUARD_REASONS: Record<string, string> = {
   no_sources: "não indicou a fonte",
   too_long: "resposta longa demais",
   empty: "resposta vazia",
+  markdown: "usou formatação que o WhatsApp não exibe",
+  false_completion: "deu como feita uma ação que o sistema não concluiu",
+  guarantee: "prometeu resultado",
+  repetition: "repetiu a mensagem anterior",
 };
 
 /** Teste de perguntas antes de publicar: mesmo motor e mesma checagem do atendimento, sem enviar nada. */
@@ -406,19 +410,21 @@ export function KnowledgeTestPanel() {
             Motor: {result.engine} · intenção: {result.intent} · {result.considered} entrada(s) consultada(s)
           </p>
           {result.clinical || result.urgent || result.wantsHuman ? (
-            <p className="flex items-center gap-2 text-champagne">
+            <p className="flex items-center gap-2 text-warning">
               <ShieldAlert aria-hidden className="size-4" />
               {result.urgent
                 ? "Possível urgência: o assistente orienta procurar atendimento e chama a equipe com prioridade."
                 : result.clinical
-                  ? "Pergunta de saúde: o assistente não responde e encaminha para a equipe."
+                  ? "Pergunta de saúde: o assistente não orienta e encaminha para a equipe."
                   : "Pedido de atendimento humano: o assistente encaminha para a equipe."}
             </p>
           ) : null}
           {result.answer ? (
             <>
               <p className="whitespace-pre-line text-foreground">{result.answer}</p>
-              <p className="text-xs text-muted-foreground">Fontes: {result.sources.map((source) => source.title).join("; ")}</p>
+              <p className="text-xs text-muted-foreground">
+                Fontes: {result.sources.length ? result.sources.map((source) => source.title).join("; ") : "nenhuma entrada da base citada"}
+              </p>
             </>
           ) : !result.clinical && !result.urgent && !result.wantsHuman ? (
             <p className="text-foreground/85">

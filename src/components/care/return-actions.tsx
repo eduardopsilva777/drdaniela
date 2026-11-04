@@ -105,7 +105,7 @@ export function ReturnActions({
           ) : null}
           <DropdownMenuItem onSelect={() => setDialog("reschedule")}>Definir nova data</DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem className="text-brick focus:text-brick" onSelect={() => setDialog("cancel")}>
+          <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => setDialog("cancel")}>
             Cancelar retorno
           </DropdownMenuItem>
         </DropdownMenuContent>

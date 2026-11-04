@@ -81,7 +81,7 @@ export function LostReasonDialog({
                   setReason(option);
                   setError(undefined);
                 }}
-                className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground transition-colors hover:border-rose/40 hover:text-foreground aria-pressed:border-rose/60 aria-pressed:text-foreground"
+                className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground aria-pressed:border-primary/60 aria-pressed:text-foreground"
                 aria-pressed={reason === option}
               >
                 {option}

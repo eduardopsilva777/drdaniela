@@ -31,9 +31,9 @@ const PASSAGES: KnowledgePassage[] = [
 ];
 
 const SLOTS: StoredSlot[] = [
-  { startsAt: "2026-11-03T13:00:00.000Z", professionalId: PROFESSIONAL_ID, durationMinutes: 30, dateKey: "2026-11-03", time: "10:00", label: "Ter, 03/11 às 10:00" },
-  { startsAt: "2026-11-03T17:00:00.000Z", professionalId: PROFESSIONAL_ID, durationMinutes: 30, dateKey: "2026-11-03", time: "14:00", label: "Ter, 03/11 às 14:00" },
-  { startsAt: "2026-11-04T12:00:00.000Z", professionalId: PROFESSIONAL_ID, durationMinutes: 30, dateKey: "2026-11-04", time: "09:00", label: "Qua, 04/11 às 09:00" },
+  { startsAt: "2026-11-03T13:00:00.000Z", professionalId: PROFESSIONAL_ID, durationMinutes: 30, dateKey: "2026-11-03", time: "10:00", label: "Ter, 03/11 às 10:00", forAppointmentId: null },
+  { startsAt: "2026-11-03T17:00:00.000Z", professionalId: PROFESSIONAL_ID, durationMinutes: 30, dateKey: "2026-11-03", time: "14:00", label: "Ter, 03/11 às 14:00", forAppointmentId: null },
+  { startsAt: "2026-11-04T12:00:00.000Z", professionalId: PROFESSIONAL_ID, durationMinutes: 30, dateKey: "2026-11-04", time: "09:00", label: "Qua, 04/11 às 09:00", forAppointmentId: null },
 ];
 
 const UPCOMING: AppointmentOption = {

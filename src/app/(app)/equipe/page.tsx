@@ -72,12 +72,12 @@ async function StaffTable() {
                   <p className="text-xs text-muted-foreground">{member.email}</p>
                 </TableCell>
                 <TableCell>
-                  <StatusBadge tone={member.role === "ADMIN" ? "rose" : member.role === "PROFESSIONAL" ? "lavender" : "neutral"} label={ROLE_LABELS[member.role]} />
+                  <StatusBadge tone={member.role === "ADMIN" ? "primary" : member.role === "PROFESSIONAL" ? "info" : "neutral"} label={ROLE_LABELS[member.role]} />
                 </TableCell>
                 <TableCell>
                   <div className="flex flex-wrap gap-1.5">
-                    <StatusBadge tone={member.isActive ? "sage" : "muted"} label={member.isActive ? "Ativa" : "Desativada"} />
-                    {member.isActive && member.mustChangePassword ? <StatusBadge tone="champagne" label="Senha provisória" /> : null}
+                    <StatusBadge tone={member.isActive ? "success" : "muted"} label={member.isActive ? "Ativa" : "Desativada"} />
+                    {member.isActive && member.mustChangePassword ? <StatusBadge tone="warning" label="Senha provisória" /> : null}
                   </div>
                 </TableCell>
                 <TableCell className="text-muted-foreground tabular-nums">

@@ -2,7 +2,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
 import { patientInputSchema } from "@/lib/validation/patients";
 import { AuthorizationError } from "@/server/auth/errors";
-import { messageContext, sealText, UNREADABLE_TEXT } from "@/server/crypto/content-cipher";
+import { memoryContext, messageContext, sealText, UNREADABLE_TEXT } from "@/server/crypto/content-cipher";
 import { DomainError } from "@/server/errors";
 import {
   addPatientNote,
@@ -186,6 +186,11 @@ describe("exportação de dados (LGPD)", () => {
     const patient = await createTestPatient(db);
     const conversation = await db.whatsAppConversation.create({ data: { contactPhone: patient.phone, patientId: patient.id } });
     const sealed = sealText("Quero remarcar meu horário", messageContext(conversation.id), { current: key, previous: [] });
+    // Notas que a IA mantém sobre a conversa também são dados do titular.
+    await db.whatsAppConversation.update({
+      where: { id: conversation.id },
+      data: { assistantMemory: sealText("Prefere horários à tarde", memoryContext(conversation.id), { current: key, previous: [] }) },
+    });
     await db.whatsAppMessage.create({
       data: { conversationId: conversation.id, direction: "INBOUND", origin: "CONTACT", body: sealed, provider: "cloud_api", status: "RECEIVED" },
     });
@@ -197,6 +202,7 @@ describe("exportação de dados (LGPD)", () => {
     expect(data.patient.conversations).toEqual([
       {
         contactPhone: patient.phone,
+        assistantNotes: "Prefere horários à tarde",
         messages: [
           expect.objectContaining({ direction: "INBOUND", body: "Quero remarcar meu horário" }),
           expect.objectContaining({ direction: "OUTBOUND", body: null }),

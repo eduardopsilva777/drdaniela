@@ -173,7 +173,7 @@ export function AppointmentFormDialog({
           }}
         >
           {fixedSubject ? (
-            <div className="rounded-xl border border-border bg-surface-raised/40 px-4 py-3 text-sm">
+            <div className="rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm">
               <span className="text-muted-foreground">{fixedSubject.kind === "patient" ? "Paciente" : "Lead"}: </span>
               <span className="font-medium text-foreground">{fixedSubject.name}</span>
             </div>

@@ -22,7 +22,7 @@ export function LoginForm({ next }: { next: string }) {
       <input type="hidden" name="next" value={next} />
 
       <div className="space-y-1.5">
-        <h1 className="text-2xl font-medium tracking-tight text-foreground">Entrar</h1>
+        <h1 className="text-title-1 text-foreground">Entrar</h1>
         <p className="text-sm text-muted-foreground">
           Use o e-mail e a senha da sua conta na clínica.
         </p>
@@ -31,9 +31,9 @@ export function LoginForm({ next }: { next: string }) {
       {state.message ? (
         <div
           role="alert"
-          className="flex items-start gap-3 rounded-xl border border-brick/30 bg-brick/[0.08] px-4 py-3 text-sm text-foreground"
+          className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive-subtle px-4 py-3 text-sm text-foreground"
         >
-          <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0 text-brick" />
+          <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0 text-destructive" />
           <span>{state.message}</span>
         </div>
       ) : null}
@@ -89,7 +89,7 @@ export function LoginForm({ next }: { next: string }) {
         </Field>
       </FieldGroup>
 
-      <Button type="submit" size="lg" className="h-11 w-full rounded-lg text-[0.9375rem]" disabled={pending}>
+      <Button type="submit" size="lg" className="w-full text-[0.9375rem] font-semibold" disabled={pending}>
         {pending ? (
           <>
             <LoaderCircle aria-hidden className="animate-spin" />

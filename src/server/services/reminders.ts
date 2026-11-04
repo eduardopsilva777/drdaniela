@@ -366,7 +366,7 @@ async function claimDueReminders(db: DbClient, now: Date, limit: number, channel
 }
 
 /** Mensagens proativas já enviadas ao número no período (lembretes e acompanhamento). */
-function countProactive(db: DbClient, phone: string, since: Date) {
+export function countProactive(db: DbClient, phone: string, since: Date) {
   return db.whatsAppMessage.count({
     where: {
       conversation: { contactPhone: phone },

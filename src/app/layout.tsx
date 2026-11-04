@@ -1,43 +1,45 @@
 import type { Metadata, Viewport } from "next";
-import { Bodoni_Moda, Hanken_Grotesk } from "next/font/google";
+import { Manrope } from "next/font/google";
 
+import { THEME_INIT_SCRIPT } from "@/components/theme/theme";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 import "./globals.css";
 
-const sans = Hanken_Grotesk({
+// Manrope: uma família para marca e interface, com números tabulares e acentuação completa.
+const sans = Manrope({
   subsets: ["latin"],
-  variable: "--font-hanken",
-  display: "swap",
-});
-
-const display = Bodoni_Moda({
-  subsets: ["latin"],
-  variable: "--font-bodoni",
-  axes: ["opsz"],
+  variable: "--font-manrope",
   display: "swap",
 });
 
 export const metadata: Metadata = {
   title: {
-    default: "CRM — Dra. Daniela Zilioli",
-    template: "%s — Dra. Daniela Zilioli",
+    default: "Clinni",
+    template: "%s — Clinni",
   },
-  description: "Sistema interno de gestão da clínica Dra. Daniela Zilioli.",
-  applicationName: "CRM Dra. Daniela Zilioli",
+  description: "Clinni — gestão, relacionamento e inteligência para clínicas estéticas.",
+  applicationName: "Clinni",
   robots: { index: false, follow: false },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0e0b0d",
-  colorScheme: "dark",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#fcfbf9" },
+    { media: "(prefers-color-scheme: dark)", color: "#0f1117" },
+  ],
+  colorScheme: "light dark",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="pt-BR" className={cn("dark", sans.variable, display.variable)}>
+    // A classe `dark` é aplicada pelo script abaixo, antes da pintura, conforme a preferência salva.
+    <html lang="pt-BR" className={cn(sans.variable)} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className="min-h-dvh">
         <TooltipProvider delayDuration={250}>{children}</TooltipProvider>
         <Toaster position="top-right" />

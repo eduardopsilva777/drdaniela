@@ -78,7 +78,7 @@ async function TasksContent({ searchParams }: { searchParams: PageProps<"/tarefa
                 <li key={task.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                   <div className="min-w-0 space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      {task.urgent ? <StatusBadge tone="brick" label="Urgente" /> : null}
+                      {task.urgent ? <StatusBadge tone="danger" label="Urgente" /> : null}
                       <StatusBadge tone={TASK_KIND_TONES[task.kind]} label={TASK_KIND_LABELS[task.kind]} />
                       <p className="font-medium text-foreground">{task.title}</p>
                     </div>
@@ -91,17 +91,17 @@ async function TasksContent({ searchParams }: { searchParams: PageProps<"/tarefa
                     </p>
                     <p className="flex flex-wrap gap-3 text-xs">
                       {task.conversationId ? (
-                        <Link href={`/whatsapp?conversa=${task.conversationId}`} className="text-rose underline-offset-4 hover:underline">
+                        <Link href={`/whatsapp?conversa=${task.conversationId}`} className="text-primary underline-offset-4 hover:underline">
                           Abrir conversa
                         </Link>
                       ) : null}
                       {task.lead ? (
-                        <Link href={`/leads/${task.lead.id}`} className="text-rose underline-offset-4 hover:underline">
+                        <Link href={`/leads/${task.lead.id}`} className="text-primary underline-offset-4 hover:underline">
                           Lead: {task.lead.name}
                         </Link>
                       ) : null}
                       {task.patient ? (
-                        <Link href={`/pacientes/${task.patient.id}`} className="text-rose underline-offset-4 hover:underline">
+                        <Link href={`/pacientes/${task.patient.id}`} className="text-primary underline-offset-4 hover:underline">
                           Paciente: {task.patient.fullName}
                         </Link>
                       ) : null}

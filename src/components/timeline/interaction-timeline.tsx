@@ -68,7 +68,7 @@ export function InteractionTimeline({
             <span
               className={cn(
                 "relative z-10 flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-card",
-                isStageChange ? "text-rose" : "text-muted-foreground",
+                isStageChange ? "text-primary" : "text-muted-foreground",
               )}
             >
               <Icon aria-hidden className="size-3.5" />

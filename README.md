@@ -1,6 +1,6 @@
-# CRM — Dra. Daniela Zilioli
+# Clinni
 
-Sistema interno da clínica de estética: leads e funil comercial, pacientes, agenda, protocolos de tratamento com retornos e lembretes, conversas de WhatsApp (preparadas para a API oficial) e indicadores — com segurança e LGPD desde a base.
+CRM para clínicas de estética — nesta versão, uma clínica por instalação: leads e funil comercial, pacientes, agenda, protocolos de tratamento com retornos e lembretes, conversas de WhatsApp (preparadas para a API oficial) com assistente virtual — incluindo IA conversacional que usa as ferramentas do CRM com segurança — e indicadores, com segurança e LGPD desde a base.
 
 ## Situação dos módulos
 
@@ -16,12 +16,15 @@ Um módulo só aparece como disponível quando funciona de ponta a ponta (telas,
 | 6 | Dashboard | **Concluída** | Indicadores reais do banco: agenda do dia, retornos atrasados, próximas ações comerciais, leads novos, conversão por etapa, origem dos leads e procedimentos realizados, com filtro de período |
 | 7 | WhatsApp | **Concluída (estrutura)** | Adaptadores de desenvolvimento e da Cloud API, webhook com assinatura e idempotência, conversas vinculadas a leads/pacientes, janela de 24h, status de entrega/leitura. **Envio real depende das credenciais da Meta** (veja abaixo) |
 | 8 | Equipe e LGPD | **Concluída** | Gestão de contas na interface (perfis, desativação, senha provisória com troca obrigatória), troca da própria senha, rotina de retenção de dados técnicos |
+| 9 | Assistente virtual | **Concluída (IA real depende de credencial)** | Fila de atendimento, base de conhecimento com versões e aprovação, pendências de curadoria, tarefas da equipe, consentimentos e três motores: por regras (sem IA), guiado e **IA conversacional** — respostas geradas na hora a partir da personalidade configurada, do contexto do contato e da base aprovada, com ferramentas do CRM validadas no servidor (cadastro de leads, agenda com confirmação explícita, transferência, retornos, acompanhamentos), checagem das respostas e controle de custo. Testada com provedor simulado; **nunca chamada contra a API real neste ambiente** ([detalhes](docs/assistente-ia.md)) |
 
 ### Pendências reais e limitações
 
 - **WhatsApp real:** o código da Cloud API está pronto e testado com respostas simuladas da API, mas **nunca foi exercitado contra a Meta** — faltam número verificado, token, segredo do app e modelos aprovados. Passo a passo em [`docs/whatsapp.md`](docs/whatsapp.md). Sem isso, use `WHATSAPP_PROVIDER=disabled` (padrão em produção): nada é enviado e os lembretes ficam visíveis no CRM.
-- **Agendador da fila de lembretes:** o endpoint `/api/jobs/reminders` existe e as configurações prontas (crontab, systemd, Vercel, GitHub Actions) estão em [`docs/operacao.md`](docs/operacao.md#3-agendador-da-fila-de-lembretes), mas o agendador precisa ser ligado na hospedagem. Sem ele, a fila só é processada pelo botão “Processar fila” (perfis Profissional e Administração) — e o servidor avisa no log ao iniciar sem `CRON_SECRET`.
+- **Agendador do ciclo de automação:** o endpoint `/api/jobs/automation` (lembretes, acompanhamentos, fila do assistente e reenvios; `/api/jobs/reminders` continua como sinônimo) existe e as configurações prontas (crontab, systemd, Vercel, GitHub Actions) estão em [`docs/operacao.md`](docs/operacao.md#3-agendador-da-fila-de-lembretes), mas o agendador precisa ser ligado na hospedagem. Sem ele, a fila só é processada pelo botão “Processar fila” (perfis Profissional e Administração) — e o servidor avisa no log ao iniciar sem `CRON_SECRET`.
 - **Retenção de dados pessoais:** a rotina automática cobre apenas dados técnicos. Prazos de guarda de dados de pacientes e anonimização de leads antigos dependem de decisão jurídica da clínica — veja [`docs/seguranca-e-lgpd.md`](docs/seguranca-e-lgpd.md).
+- **IA conversacional real:** implementada e testada com provedor simulado, CRM simulado e PostgreSQL real, mas **sem nenhuma chamada à API da Anthropic neste ambiente** (sem chave; chamadas pagas não autorizadas). Antes de ativar: contrato e base legal para a transferência internacional (LGPD art. 33), `ANTHROPIC_API_KEY` e a avaliação `npm run assistant:eval -- --confirm-costs` ([docs/assistente-ia.md](docs/assistente-ia.md)).
+- **Hospedagem:** a recomendação é Node.js convencional; o empacotamento para Cloudflare Workers (OpenNext) falhou e não está validado ([docs/hospedagem.md](docs/hospedagem.md)).
 - **Mídia no WhatsApp:** mensagens recebidas com imagem, áudio ou documento são registradas apenas como “[tipo] conteúdo não exibido” (a mídia não é baixada nem armazenada).
 - **Notificações em tempo real:** a tela de conversas não se atualiza sozinha (há o botão “Atualizar”), para não manter sessões ociosas abertas indefinidamente.
 - **Agenda por sala/equipamento** e **pagamentos/financeiro** estão fora do escopo atual.
@@ -99,7 +102,8 @@ O seed cria também leads, pacientes, agenda (com datas relativas a hoje), um pr
 | `npm run user:create` | Cria uma conta pela linha de comando (primeira conta de administração) |
 | `npm run user:reset-password` | Redefine a senha pela linha de comando e encerra as sessões |
 | `npm run data:retention` | Retenção de dados técnicos — **simula**; `-- --apply` executa |
-| `npm run data:rotate-key` | Rotação da chave das observações — **simula**; `-- --apply` recifra ([procedimento](docs/operacao.md#rotação-da-data_encryption_key)) |
+| `npm run data:rotate-key` | Rotação da `DATA_ENCRYPTION_KEY` (observações, mensagens, notas do assistente e pendências) — **simula**; `-- --apply` recifra ([procedimento](docs/operacao.md#rotação-da-data_encryption_key)) |
+| `npm run assistant:eval -- --confirm-costs` | Avaliação da IA conversacional com o **modelo real** sobre um CRM simulado (tem custo; nada é gravado nem enviado) |
 
 ### Contas da equipe
 
@@ -137,6 +141,14 @@ Validadas com Zod na inicialização (`src/instrumentation.ts`); se algo estiver
 | `WHATSAPP_BUSINESS_ACCOUNT_ID` | não | Conta do WhatsApp Business (referência) |
 | `WHATSAPP_TEMPLATE_LANGUAGE` | não | Idioma dos modelos (padrão `pt_BR`) |
 | `WHATSAPP_TEMPLATE_RETURN_REMINDER`, `WHATSAPP_TEMPLATE_APPOINTMENT_REMINDER` | com `cloud_api` | Nomes dos modelos aprovados na Meta para os lembretes |
+| `AI_PROVIDER` | não | `disabled` (padrão em produção), `rules` (padrão fora de produção, sem IA) ou `anthropic` |
+| `AI_ENGINE` | não | Com `anthropic`: `agent` (IA conversacional, padrão) ou `guided` (IA só interpreta; textos configurados) |
+| `ANTHROPIC_API_KEY` | com `anthropic` | Credencial da Anthropic (nunca exibida nem registrada) |
+| `ANTHROPIC_MODEL`, `AI_EFFORT` | não | Modelo (padrão `claude-opus-5-5`) e esforço de raciocínio (`low`, `medium` — padrão —, `high`) |
+| `AI_TIMEOUT_MS`, `AI_TURN_TIMEOUT_MS` | não | Tempo limite por chamada (30 s) e por mensagem inteira (120 s) |
+| `AI_MAX_OUTPUT_TOKENS`, `AI_MAX_CONCURRENCY` | não | Teto de tokens gerados por chamada (8.000) e chamadas simultâneas por processo (3) |
+| `AI_PRICE_INPUT_PER_MTOK`, `AI_PRICE_OUTPUT_PER_MTOK`, `AI_PRICE_CACHE_READ_PER_MTOK`, `AI_PRICE_CACHE_WRITE_PER_MTOK` | não | Preços (US$ por milhão de tokens) para estimar o custo e aplicar o limite mensal (padrões do `claude-opus-5-5`) |
+| `OPENNEXT_CLOUDFLARE_DEV` | não | `1` liga a simulação do Cloudflare no `next dev` (só para testar o empacotamento OpenNext) |
 | `SEED_USER_PASSWORD` | seed | Senha das contas fictícias de desenvolvimento |
 
 ## Arquitetura
@@ -151,7 +163,7 @@ src/
 │       ├── health/              Health check (consulta o banco)
 │       ├── pacientes/[id]/exportar/   Exportação LGPD (somente administração)
 │       ├── webhooks/whatsapp/   Webhook da Cloud API (assinatura + idempotência)
-│       └── jobs/reminders/      Processamento da fila de lembretes (CRON_SECRET)
+│       └── jobs/automation/     Ciclo de automação: lembretes, acompanhamentos, assistente, reenvios (CRON_SECRET)
 ├── components/                  ui/ (shadcn), layout/, data/, forms/ e componentes por módulo
 ├── hooks/                       useAction (Server Actions + feedback), useResetOnHide
 ├── lib/                         Código isomórfico: rótulos, datas no fuso, telefones, dinheiro,
@@ -161,13 +173,15 @@ src/
 │   ├── actions/                 Server Actions (envelope runAction: sessão + permissão + erros)
 │   ├── services/                Regras de negócio (recebem o ator; testadas com banco real)
 │   ├── queries/                 Leituras com autorização embutida
+│   ├── assistant/               Assistente: motor por regras, motor guiado e agent/ (IA conversacional:
+│   │                            instruções, contexto, ferramentas do CRM, provedor Anthropic, simulador)
 │   ├── whatsapp/                Contrato do provedor, adaptadores e leitura de webhooks
 │   ├── crypto/                  Cifragem AES-256-GCM das observações
 │   ├── maintenance/             Rotina de retenção de dados técnicos
 │   ├── audit.ts, env.ts, logger.ts, errors.ts
 └── proxy.ts                     Redirecionamento otimista para o login
 prisma/                          Schema, migrations e seed fictício
-scripts/                         Linha de comando: contas e retenção
+scripts/                         Linha de comando: contas, retenção, rotação de chave e avaliação da IA
 tests/                           unit/ e integration/
 docs/                            Documentação por domínio
 ```
@@ -178,11 +192,14 @@ docs/                            Documentação por domínio
 
 Documentação por domínio:
 
+- [Identidade visual e design system](docs/design-system.md) (arquivos oficiais da marca em [`docs/brand/`](docs/brand/))
 - [Modelo de dados](docs/modelo-de-dados.md)
 - [Fluxos comerciais (leads, funil, conversão, indicadores)](docs/fluxos-comerciais.md)
 - [Agendamentos](docs/agendamentos.md)
 - [Protocolos, retornos e lembretes](docs/protocolos-e-retornos.md)
 - [Integração com o WhatsApp](docs/whatsapp.md)
+- [Assistente virtual e IA conversacional](docs/assistente-ia.md)
+- [Hospedagem: Node.js × OpenNext × vinext](docs/hospedagem.md)
 - [Segurança e LGPD](docs/seguranca-e-lgpd.md)
 - [Operação em produção (deploy, agendador, backups, rotação de chaves, recuperação)](docs/operacao.md)
 - [Auditoria técnica de 02/11/2026](docs/auditoria-tecnica.md)
@@ -219,6 +236,9 @@ O schema (`prisma/schema.prisma`) e as migrations em `prisma/migrations/` cobrem
 | `20261031155449_init` | Estrutura inicial, `btree_gist`, agenda sem sobreposição (`EXCLUDE`), CHECKs, auditoria somente inserção |
 | `20261031180000_crm_modules` | Módulos do CRM: interações de leads/pacientes, retornos, fila de lembretes com índices de idempotência, histórico da agenda, consentimentos |
 | `20261031180100_appointments_no_show_overlap` | “Não compareceu” também libera o horário na restrição de sobreposição |
+| `20261102120000_whatsapp_assistant` | WhatsApp, assistente virtual, base de conhecimento com versões, curadoria, tarefas da equipe, consentimentos, modelos da Meta |
+| `20261102120100_reminders_follow_up_index` | Idempotência das etapas de acompanhamento na fila de lembretes |
+| `20261104120000_assistant_agent` | IA conversacional (só adições): consumo por execução, execuções de acompanhamento, notas cifradas da conversa |
 
 Datas e horas ficam em `timestamptz` (UTC) e são exibidas no fuso da clínica; datas de calendário (retornos, nascimento) em `date`.
 
@@ -226,10 +246,11 @@ Em produção: `npm run db:deploy` (aplica migrations sem criar novas). **Faça 
 
 ## Testes
 
-219 testes (Vitest), em duas camadas:
+375 testes (Vitest), em duas camadas:
 
 - **Unitários** (`tests/unit`): senhas, tokens, permissões, redirecionamento, validações (Zod) de todos os módulos, redação de logs, ambiente (incluindo regras do WhatsApp), datas no fuso, telefones, dinheiro, cálculo de protocolos, posicionamento da agenda, assinatura/leitura de webhooks (inclusive sobre bytes brutos), adaptador da Cloud API (sem vazar token em logs), cifragem, redação de erros do PostgreSQL, avisos de configuração de produção e a trava do banco de testes.
-- **Integração** (`tests/integration`, PostgreSQL real): sessões e login com limite de tentativas; restrições do banco; leads (duplicidade, funil, interações, conversão transacional e concorrente, exclusão); pacientes (consentimentos, cifragem, acesso clínico auditado, exportação); agenda (fuso, conflitos inclusive com criações simultâneas, janela de datas, reagendamento com histórico, transições, reflexo no funil); protocolos e retornos (cálculo, recálculo, cancelamento, vínculo com a agenda); fila de lembretes (simulação, novas tentativas, falha definitiva, processadores concorrentes, trava presa); WhatsApp (webhook idempotente, status, janela de 24h, simulação); rotas públicas (assinatura do webhook, segredo do cron, exportação recusada vinda de outro site); equipe, troca de senha com limite de tentativas, retenção e rotação da chave das observações.
+- **Integração** (`tests/integration`, PostgreSQL real): sessões e login com limite de tentativas; restrições do banco; leads (duplicidade, funil, interações, conversão transacional e concorrente, exclusão); pacientes (consentimentos, cifragem, acesso clínico auditado, exportação); agenda (fuso, conflitos inclusive com criações simultâneas, janela de datas, reagendamento com histórico, transições, reflexo no funil); protocolos e retornos (cálculo, recálculo, cancelamento, vínculo com a agenda); fila de lembretes (simulação, novas tentativas, falha definitiva, processadores concorrentes, trava presa); WhatsApp (webhook idempotente, status, janela de 24h, simulação); rotas públicas (assinatura do webhook, segredo do cron, exportação recusada vinda de outro site); equipe, troca de senha com limite de tentativas, retenção e rotação da chave; assistente virtual (fila, motores por regras e guiado, base de conhecimento, curadoria) e **IA conversacional** de ponta a ponta com provedor roteirizado — conversa com dúvida, cadastro, agendamento com confirmação e consentimento; isolamento e minimização do contexto; notas cifradas; transferência; limite mensal; falhas; janela de 24h; retornos de protocolo; acompanhamentos.
+- **Cenários de conversa** (`tests/unit/assistant-agent*.test.ts`): ferramentas e permissões, confirmação explícita, checagem das respostas, manipulação, limites de tokens/chamadas/tempo e perfis de contato com vários turnos. A qualidade da linguagem do modelo real é avaliada à parte, com `npm run assistant:eval` (opcional, com custo).
 
 ```bash
 npm run check   # lint + typecheck + todos os testes + build
@@ -244,22 +265,14 @@ Guia completo — checklist, configuração, agendador, backups e restauração,
 3. Backup do banco → `npm run db:deploy`
 4. `npm run user:create -- --email … --name "…" --role ADMIN` (primeira conta)
 5. `npm start`. Monitore `GET /api/health`.
-6. Agende `POST /api/jobs/reminders` (ex.: a cada 5 minutos) com `Authorization: Bearer $CRON_SECRET`.
+6. Agende `POST /api/jobs/automation` (ex.: a cada 5 minutos) com `Authorization: Bearer $CRON_SECRET`.
 7. Opcional: agende `npm run data:retention -- --apply` (ex.: mensalmente).
 
 Atrás de um proxy reverso que acrescenta o IP do cliente ao `X-Forwarded-For`, defina `TRUST_PROXY=true`. Use sempre HTTPS: o cookie de sessão exige conexão segura.
 
-### Deploy no Cloudflare Workers
+### Hospedagem
 
-O projeto usa OpenNext para executar o Next.js no Workers. No Cloudflare, configure:
-
-- **Root directory:** vazio
-- **Build command:** `npm run build`
-- **Deploy command:** `npm run deploy`
-- **Node.js:** 22 ou superior
-- **Branch:** `main`
-
-O repositório já contém `wrangler.jsonc`, `open-next.config.ts` e os scripts de deploy. Não use `npx wrangler deploy` diretamente: ele tenta executar a migração interativa do OpenNext durante o deploy. Configure no Cloudflare as variáveis de produção do [`.env.example`](.env.example), incluindo `DATABASE_URL`, `APP_URL`, `DATA_ENCRYPTION_KEY` e `CRON_SECRET`.
+Recomendação: **Node.js convencional + PostgreSQL gerenciado** (comparação e arquitetura em [`docs/hospedagem.md`](docs/hospedagem.md)). O repositório também contém `wrangler.jsonc`, `open-next.config.ts` e os scripts `preview`/`deploy`/`upload` do OpenNext para Cloudflare Workers, gerados automaticamente pelo Wrangler — esse caminho **não está validado**: o empacotamento falhou (dependências nativas e versão do Next) e o limite de 30 s do `waitUntil` não comporta o atendimento com IA. Não faça deploy no Workers sem cumprir os pré-requisitos listados no documento.
 
 ## Decisões técnicas
 
@@ -269,6 +282,6 @@ O repositório já contém `wrangler.jsonc`, `open-next.config.ts` e os scripts 
 - **WhatsApp atrás de uma interface** (`WhatsAppProvider`): desenvolvimento e Cloud API são intercambiáveis por variável de ambiente; o modo de desenvolvimento é proibido em produção pela validação do ambiente.
 - **Sem atualização automática na tela de conversas:** consultas periódicas manteriam a sessão ativa indefinidamente (contornando o encerramento por inatividade).
 - **TypeScript 5.9 e não 7.0** (limite do `typescript-eslint`); **Prisma 7.10 e não 8** (a tag `latest` do CLI aponta para um *release candidate*).
-- **`clsx` + `tailwind-merge`**: componentes usam `cn` de `@/lib/utils`; o ESLint acusa o import `cn` que o CLI do shadcn 4 gera.
-- **Somente tema escuro** (identidade da clínica: grafite, preto e rosé). A cor de dados dos gráficos é um passo da rampa rosé validado para contraste e legibilidade.
+- **`clsx` + `tailwind-merge`**: componentes usam `cn` de `@/lib/utils`; o ESLint acusa o import `cn` que o CLI do shadcn 4 gera. A escala tipográfica própria (`text-title-1`, `text-metric`…) é registrada no `extendTailwindMerge` — sem isso ela era descartada ao lado de uma cor.
+- **Identidade Clinni com tema claro e escuro** (direção “Contínuo” da pasta `vsmidia`): tokens semânticos em `src/app/globals.css`, Manrope, contraste AA medido nos dois temas. O tema segue o sistema por padrão e a escolha fica no navegador — sem cookie, para as páginas continuarem pré-renderizáveis. Detalhes e decisões em [`docs/design-system.md`](docs/design-system.md).
 - **Variáveis de ambiente via `@next/env`** em Prisma, seed, scripts e testes — a mesma ordem de carregamento do Next.js.

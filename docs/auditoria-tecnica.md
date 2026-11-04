@@ -41,3 +41,18 @@ Escala: **Crítica** (exploração imediata, dano grave) · **Alta** · **Média
 - **XSS:** nenhum `dangerouslySetInnerHTML` com dados (o único é o estilo estático do gráfico); links dinâmicos só com UUIDs/datas; nenhum `target=_blank`.
 - **Webhooks:** HMAC em tempo constante, limite de 1 MB, deduplicação por evento, reprocessamento só do que falhou, payload não armazenado.
 - **Migrations:** schema válido e idêntico ao banco migrado.
+
+# Consolidação de 04/11/2026
+
+Revisão do que foi commitado em `7a2797b` (fila do assistente, rotação completa da chave, decifragem na ficha e na exportação, leitura do webhook limitada a 1 MB, remarcação/cancelamento concorrentes, bloqueio de reenvio de texto apagado/ilegível) e em `75c1a89` (deploy no Cloudflare). As correções do `7a2797b` foram conferidas no código e cobertas pelos testes existentes (307 na linha de base, todos passando).
+
+| # | Severidade | Achado | Situação |
+| --- | --- | --- | --- |
+| 19 | Alta | `next.config.ts` importava `@opennextjs/cloudflare` (dependência de desenvolvimento) em todo `next dev`/`build`/`start`. Em produção Node.js sem dependências de desenvolvimento, a importação falha como rejeição não tratada, o que pode encerrar o processo; com elas instaladas, o simulador do Cloudflare (workerd) era iniciado dentro do servidor de produção. | **Corrigido:** só com `OPENNEXT_CLOUDFLARE_DEV=1` em desenvolvimento, com falha tratada. |
+| 20 | Média | `npm run lint` falhava (8.812 apontamentos) por analisar o bundle gerado em `.open-next/`. | **Corrigido:** `.open-next/**` e `.wrangler/**` ignorados. |
+| 21 | Média | Argon2id trocado de `@node-rs/argon2` (nativo) para `hash-wasm` para o Workers. Mesmo algoritmo e parâmetros (hashes compatíveis nos dois sentidos, verificado), porém ~2,3× mais lento e executado na thread principal (logins simultâneos em fila). | **Documentado** em [hospedagem.md](hospedagem.md) com a recomendação de voltar ao nativo na hospedagem Node.js (não alterado: decisão da clínica). |
+| 22 | Média | Deploy no Workers sem validação: empacotamento falhou; `after()` limitado a 30 s (`waitUntil`) não comporta o atendimento com IA; Prisma exigiria Hyperdrive. | **Documentado** ([hospedagem.md](hospedagem.md)); recomendação: Node.js. README corrigido (não descreve mais o deploy no Workers como funcional). |
+| 23 | Baixa | A checagem de identidade não reconhecia "Dra." com ponto ("Aqui é a Dra. Daniela"). | **Corrigido** e testado (vale para os motores guiado e agente). |
+| 24 | Informativa | `npm audit` (desenvolvimento): 4 altos e 19 moderados nas cadeias do `shadcn`, ESLint e `@opennextjs/cloudflare`; produção sem vulnerabilidades. | Acompanhar; as correções propostas pelo npm são *breaking*. |
+
+Validação final: lint, typecheck, 375 testes (unitários + integração com PostgreSQL), migrations sem *drift*, `npm audit --omit=dev` sem vulnerabilidades, build de produção e verificação visual (sem rolagem horizontal) em 390, 768 e 1440 px.

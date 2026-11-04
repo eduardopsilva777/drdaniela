@@ -106,14 +106,14 @@ export function LeadFormDialog({
           </div>
           {meta?.existingLeadId ? (
             <p className="-mt-2 text-sm">
-              <Link href={`/leads/${meta.existingLeadId}`} className="text-rose underline underline-offset-4">
+              <Link href={`/leads/${meta.existingLeadId}`} className="text-primary underline underline-offset-4">
                 Abrir o lead existente
               </Link>
             </p>
           ) : null}
           {meta?.existingPatientId ? (
             <p className="-mt-2 text-sm">
-              <Link href={`/pacientes/${meta.existingPatientId}`} className="text-rose underline underline-offset-4">
+              <Link href={`/pacientes/${meta.existingPatientId}`} className="text-primary underline underline-offset-4">
                 Abrir a ficha do paciente
               </Link>
             </p>

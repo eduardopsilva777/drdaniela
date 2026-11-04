@@ -1,5 +1,5 @@
 import { recordAudit } from "@/server/audit";
-import { isSealed, KNOWLEDGE_GAP_CONTEXT, messageContext } from "@/server/crypto/content-cipher";
+import { isSealed, KNOWLEDGE_GAP_CONTEXT, memoryContext, messageContext } from "@/server/crypto/content-cipher";
 import {
   decryptWithKeyring,
   encryptField,
@@ -10,8 +10,9 @@ import type { DbClient } from "@/server/db/prisma";
 
 /**
  * Recifra com a chave atual TUDO o que a DATA_ENCRYPTION_KEY protege (rotação
- * da chave): observações dos pacientes, textos das mensagens do WhatsApp e
- * perguntas guardadas para curadoria. Por padrão apenas simula; com `apply` grava.
+ * da chave): observações dos pacientes, textos das mensagens do WhatsApp,
+ * notas do assistente sobre as conversas e perguntas guardadas para curadoria.
+ * Por padrão apenas simula; com `apply` grava.
  * Procedimento completo em docs/operacao.md.
  *
  * Textos gravados sem cifragem (antes de a chave existir) e mensagens apagadas
@@ -38,6 +39,7 @@ export interface RotationReport extends RotationCounts {
   byKind: {
     notes: RotationCounts;
     messages: RotationCounts;
+    assistantMemories: RotationCounts;
     knowledgeGaps: RotationCounts;
   };
 }
@@ -130,6 +132,22 @@ export async function rotateDataEncryption(
     { ...base, onlySealed: true },
   );
 
+  // Notas do assistente sobre as conversas (cifradas quando havia chave).
+  const assistantMemories = await rotateRows(
+    async (cursor, take) =>
+      (
+        await db.whatsAppConversation.findMany({
+          ...page(cursor, take),
+          where: { assistantMemory: { startsWith: "v1:" } },
+          select: { id: true, assistantMemory: true },
+        })
+      ).map((conversation) => ({ id: conversation.id, value: conversation.assistantMemory, context: memoryContext(conversation.id) })),
+    async (row, value) => {
+      await db.whatsAppConversation.updateMany({ where: { id: row.id, assistantMemory: row.value }, data: { assistantMemory: value } });
+    },
+    { ...base, onlySealed: true },
+  );
+
   // Perguntas de curadoria (já mascaradas; cifradas quando havia chave).
   const knowledgeGaps = await rotateRows(
     async (cursor, take) =>
@@ -148,11 +166,11 @@ export async function rotateDataEncryption(
 
   const report: RotationReport = {
     apply: options.apply,
-    total: notes.total + messages.total + knowledgeGaps.total,
-    current: notes.current + messages.current + knowledgeGaps.current,
-    reencrypted: notes.reencrypted + messages.reencrypted + knowledgeGaps.reencrypted,
-    unreadable: notes.unreadable + messages.unreadable + knowledgeGaps.unreadable,
-    byKind: { notes, messages, knowledgeGaps },
+    total: notes.total + messages.total + assistantMemories.total + knowledgeGaps.total,
+    current: notes.current + messages.current + assistantMemories.current + knowledgeGaps.current,
+    reencrypted: notes.reencrypted + messages.reencrypted + assistantMemories.reencrypted + knowledgeGaps.reencrypted,
+    unreadable: notes.unreadable + messages.unreadable + assistantMemories.unreadable + knowledgeGaps.unreadable,
+    byKind: { notes, messages, assistantMemories, knowledgeGaps },
   };
 
   if (options.apply) {
@@ -166,6 +184,7 @@ export async function rotateDataEncryption(
         unreadable: report.unreadable,
         patientRecords: notes.reencrypted,
         whatsappMessages: messages.reencrypted,
+        assistantMemories: assistantMemories.reencrypted,
         curationQuestions: knowledgeGaps.reencrypted,
       },
     });

@@ -27,7 +27,7 @@ export async function SidebarUser() {
 export function SidebarUserSkeleton() {
   return (
     <div className="flex items-center gap-3 px-2 py-2" aria-hidden>
-      <Skeleton className="size-8 rounded-[0.6rem]" />
+      <Skeleton className="size-8 rounded-lg" />
       <div className="flex flex-1 flex-col gap-1.5 group-data-[collapsible=icon]:hidden">
         <Skeleton className="h-3 w-24" />
         <Skeleton className="h-2.5 w-16" />

@@ -60,7 +60,7 @@ const TAB_PERMISSIONS: Record<PatientTab, Permission> = {
 
 export default function PatientPage(props: PageProps<"/pacientes/[id]">) {
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-10 lg:py-12">
+    <div className="mx-auto w-full max-w-6xl px-4 py-7 sm:px-6 lg:px-9 lg:py-8">
       <Link href="/pacientes" className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft aria-hidden className="size-4" />
         Pacientes
@@ -77,7 +77,7 @@ function ProfileFallback() {
     <div className="space-y-6" aria-hidden>
       <Skeleton className="h-10 w-80 max-w-full" />
       <Skeleton className="h-9 w-full max-w-2xl" />
-      <Skeleton className="h-80 rounded-2xl" />
+      <Skeleton className="h-80 rounded-xl" />
     </div>
   );
 }
@@ -144,7 +144,7 @@ async function PatientView({
         title={patient.fullName}
         description={
           <span className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-            <StatusBadge tone={patient.isActive ? "sage" : "muted"} label={patient.isActive ? "Ativo" : "Inativo"} />
+            <StatusBadge tone={patient.isActive ? "success" : "muted"} label={patient.isActive ? "Ativo" : "Inativo"} />
             {patient.preferredName ? <span>Prefere “{patient.preferredName}”</span> : null}
             <span className="tabular-nums">{formatPhone(patient.phone)}</span>
             {birthKey ? <span className="tabular-nums">{ageOn(birthKey, today)} anos</span> : null}
@@ -228,7 +228,7 @@ async function PatientView({
                 className={cn(
                   "-mb-px inline-flex h-10 items-center border-b-2 px-3 text-sm transition-colors",
                   item === tab
-                    ? "border-rose text-foreground"
+                    ? "border-primary text-foreground"
                     : "border-transparent text-muted-foreground hover:text-foreground",
                 )}
               >
@@ -239,7 +239,7 @@ async function PatientView({
         </ul>
       </nav>
 
-      <Suspense key={tab} fallback={<Skeleton className="h-72 rounded-2xl" />}>
+      <Suspense key={tab} fallback={<Skeleton className="h-72 rounded-xl" />}>
         {tab === "resumo" ? <SummaryTab context={context} /> : null}
         {tab === "agenda" ? <AgendaTab context={context} /> : null}
         {tab === "procedimentos" ? <ProceduresTab context={context} /> : null}

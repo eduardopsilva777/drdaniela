@@ -196,7 +196,7 @@ function TimeGrid({
   }, [items]);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-card">
+    <div className="overflow-hidden rounded-xl border border-border bg-card">
       <div className="overflow-x-auto">
         <div className={cn(compact ? "min-w-[52rem]" : "min-w-0")}>
           <div
@@ -210,11 +210,11 @@ function TimeGrid({
                   href={day.href}
                   className={cn(
                     "inline-flex flex-col items-center rounded-lg px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground",
-                    day.isToday && "text-rose",
+                    day.isToday && "text-primary",
                   )}
                 >
                   <span>{day.weekday}</span>
-                  <span className={cn("text-base text-foreground tabular-nums", day.isToday && "text-rose")}>{day.label}</span>
+                  <span className={cn("text-base text-foreground tabular-nums", day.isToday && "text-primary")}>{day.label}</span>
                 </Link>
               </div>
             ))}
@@ -248,7 +248,7 @@ function TimeGrid({
                           className={cn(
                             "h-1/2",
                             minute === 30 && "border-t border-dashed border-border/40",
-                            canWrite && !day.isPast && "cursor-pointer hover:bg-rose/[0.05]",
+                            canWrite && !day.isPast && "cursor-pointer hover:bg-primary/[0.05]",
                           )}
                           style={{ height: hourHeight / 2 }}
                           onClick={() => {
@@ -262,10 +262,10 @@ function TimeGrid({
                   {showNow ? (
                     <div
                       aria-hidden
-                      className="pointer-events-none absolute inset-x-0 z-20 h-px bg-rose"
+                      className="pointer-events-none absolute inset-x-0 z-20 h-px bg-primary"
                       style={{ top: (nowMinutes - startHour * 60) * perMinute }}
                     >
-                      <span className="absolute -top-1 -left-1 size-2 rounded-full bg-rose" />
+                      <span className="absolute -top-1 -left-1 size-2 rounded-full bg-primary" />
                     </div>
                   ) : null}
 
@@ -293,7 +293,7 @@ function TimeGrid({
                         }}
                       >
                         <span className="flex items-center gap-1 font-medium">
-                          {item.status === "CONFIRMED" ? <Check aria-hidden className="size-3 shrink-0 text-sage" /> : null}
+                          {item.status === "CONFIRMED" ? <Check aria-hidden className="size-3 shrink-0 text-success" /> : null}
                           <span className={cn("truncate", item.status === "CANCELLED" && "line-through")}>{item.subject.name}</span>
                         </span>
                         {blockHeight >= 34 ? (
@@ -331,9 +331,9 @@ function DayList({ days, items, onOpen }: { days: AgendaDay[]; items: AgendaItem
       {days.map((day) => {
         const dayItems = items.filter((item) => item.dateKey === day.key);
         return (
-          <section key={day.key} aria-label={`${day.weekday} ${day.label}`} className="rounded-2xl border border-border bg-card">
+          <section key={day.key} aria-label={`${day.weekday} ${day.label}`} className="rounded-xl border border-border bg-card">
             <header className="flex items-baseline justify-between border-b border-border px-4 py-2.5">
-              <Link href={day.href} className={cn("text-sm font-medium", day.isToday ? "text-rose" : "text-foreground")}>
+              <Link href={day.href} className={cn("text-sm font-medium", day.isToday ? "text-primary" : "text-foreground")}>
                 {day.weekday}, {day.label}
               </Link>
               <span className="text-xs text-muted-foreground tabular-nums">{dayItems.length}</span>
@@ -386,7 +386,7 @@ function MonthGrid({ days, items, onOpen }: { days: AgendaDay[]; items: AgendaIt
   }, [items]);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-card">
+    <div className="overflow-hidden rounded-xl border border-border bg-card">
       <div className="grid grid-cols-7 border-b border-border">
         {WEEKDAYS.map((weekday) => (
           <div key={weekday} className="px-2 py-2 text-center text-xs text-muted-foreground">
@@ -413,7 +413,7 @@ function MonthGrid({ days, items, onOpen }: { days: AgendaDay[]; items: AgendaIt
                 aria-label={`${day.weekday}, ${day.label}: ${dayItems.length} agendamento(s)`}
                 className={cn(
                   "mb-1 inline-flex size-7 items-center justify-center rounded-full text-xs tabular-nums hover:bg-muted",
-                  day.isToday ? "bg-rose/15 font-medium text-rose" : day.inMonth ? "text-foreground" : "text-muted-foreground/60",
+                  day.isToday ? "bg-primary/15 font-medium text-primary" : day.inMonth ? "text-foreground" : "text-muted-foreground/60",
                 )}
               >
                 {day.dayNumber}
@@ -435,7 +435,7 @@ function MonthGrid({ days, items, onOpen }: { days: AgendaDay[]; items: AgendaIt
                         className={cn(
                           "truncate",
                           item.status === "CANCELLED" && "text-muted-foreground line-through",
-                          item.status === "NO_SHOW" ? "text-brick" : "text-foreground",
+                          item.status === "NO_SHOW" ? "text-destructive" : "text-foreground",
                         )}
                       >
                         {item.subject.name}
@@ -445,7 +445,7 @@ function MonthGrid({ days, items, onOpen }: { days: AgendaDay[]; items: AgendaIt
                 ))}
                 {hidden > 0 ? (
                   <li>
-                    <Link href={day.href} className="px-1 text-[0.6875rem] text-rose hover:underline">
+                    <Link href={day.href} className="px-1 text-[0.6875rem] text-primary hover:underline">
                       +{hidden} {hidden === 1 ? "agendamento" : "agendamentos"}
                     </Link>
                   </li>

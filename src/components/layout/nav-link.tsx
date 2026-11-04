@@ -77,7 +77,7 @@ function NavLinkItem({ href, label, icon, availability, isActive }: NavLinkProps
         asChild
         isActive={isActive}
         tooltip={label}
-        className="relative h-9 gap-3 rounded-lg px-3 text-[0.9rem] text-sidebar-foreground/80 transition-colors data-[planned=true]:pr-16 before:absolute before:top-1/2 before:left-0 before:h-4 before:w-0.5 before:-translate-y-1/2 before:rounded-full before:bg-rose before:opacity-0 before:transition-opacity data-active:text-sidebar-accent-foreground data-active:before:opacity-100 [&>svg]:text-sidebar-foreground/55 data-active:[&>svg]:text-rose"
+        className="h-9 gap-3 rounded-lg px-2.5 text-sm text-sidebar-foreground transition-colors data-[planned=true]:pr-16 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-active:bg-nav-active data-active:font-semibold data-active:text-nav-active-foreground [&>svg]:size-[1.125rem] [&>svg]:text-sidebar-foreground/80 data-active:[&>svg]:text-primary"
       >
         <Link
           href={href}
@@ -93,7 +93,7 @@ function NavLinkItem({ href, label, icon, availability, isActive }: NavLinkProps
       </SidebarMenuButton>
       {planned ? (
         <SidebarMenuBadge
-          className="top-2! right-2 h-5 rounded-full px-1.5 text-[0.6875rem] font-normal text-sidebar-foreground/45"
+          className="top-2! right-2 h-5 rounded-full px-1.5 text-[0.6875rem] font-medium text-muted-foreground"
           aria-label={`Previsto para a etapa ${availability.stage}`}
         >
           etapa {availability.stage}

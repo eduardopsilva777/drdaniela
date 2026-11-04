@@ -14,6 +14,8 @@ export const storedSlotSchema = z.object({
   dateKey: z.string(),
   time: z.string(),
   label: z.string().max(80),
+  /** Horário calculado para remarcar este agendamento (nulo: horário para um agendamento novo). */
+  forAppointmentId: z.uuid().nullable().default(null),
 });
 
 export type StoredSlot = z.output<typeof storedSlotSchema>;
@@ -28,6 +30,25 @@ export const appointmentOptionSchema = z.object({
 });
 
 export type AppointmentOption = z.output<typeof appointmentOptionSchema>;
+
+/**
+ * Ação importante proposta pela IA generativa e ainda NÃO executada: só vira
+ * agendamento/remarcação/cancelamento quando o contato confirma explicitamente
+ * numa mensagem posterior (o servidor confere) — nunca na mesma mensagem.
+ */
+export const pendingActionSchema = z.object({
+  type: z.enum(["book", "reschedule", "cancel"]),
+  slot: storedSlotSchema.nullable(),
+  appointment: appointmentOptionSchema.nullable(),
+  /** Retorno previsto que o agendamento atende (só pacientes). */
+  returnId: z.uuid().nullable(),
+  procedureName: z.string().max(120).nullable(),
+  proposedAt: z.string(),
+  /** Mensagem do contato que estava sendo respondida quando a ação foi proposta. */
+  proposedForMessageId: z.uuid().nullable(),
+});
+
+export type PendingAction = z.output<typeof pendingActionSchema>;
 
 export const ASSISTANT_STEPS = [
   "ask_name",
@@ -61,6 +82,7 @@ export const assistantStateSchema = z.object({
   selectedSlot: storedSlotSchema.nullable().default(null),
   appointmentOptions: z.array(appointmentOptionSchema).max(6).default([]),
   target: appointmentOptionSchema.nullable().default(null),
+  pendingAction: pendingActionSchema.nullable().default(null),
   greeted: z.boolean().default(false),
   qualified: z.boolean().default(false),
   leadRegistered: z.boolean().default(false),
@@ -86,6 +108,7 @@ export function clearFlow(state: AssistantState): AssistantState {
     selectedSlot: null,
     appointmentOptions: [],
     target: null,
+    pendingAction: null,
     bookingProcedureName: null,
   };
 }

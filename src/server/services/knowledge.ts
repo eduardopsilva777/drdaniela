@@ -290,7 +290,7 @@ export async function reportAssistantReply(
     },
   });
   if (!message || message.origin !== "ASSISTANT") throw new DomainError("Só respostas do assistente podem ser avaliadas.");
-  const inbound = message.replyOfRun?.inboundMessage.body ?? null;
+  const inbound = message.replyOfRun?.inboundMessage?.body ?? null;
   const question = openText(inbound, messageContext(message.conversationId), keyring) ?? "(pergunta indisponível)";
   const { created } = await recordKnowledgeGap(db, keyring, {
     question,

@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
-import { isSealed, KNOWLEDGE_GAP_CONTEXT, messageContext, openText, sealText } from "@/server/crypto/content-cipher";
+import { isSealed, KNOWLEDGE_GAP_CONTEXT, memoryContext, messageContext, openText, sealText } from "@/server/crypto/content-cipher";
 import { decryptField, encryptField, noteContext, type Keyring } from "@/server/crypto/field-encryption";
 import { rotateDataEncryption } from "@/server/maintenance/rotate-encryption-key";
 import { readGapQuestion, recordKnowledgeGap } from "@/server/services/knowledge";
@@ -54,7 +54,11 @@ describe("rotação da DATA_ENCRYPTION_KEY", () => {
     const keyring = { current: newKey, previous: [oldKey] };
     const notesCounts = { total: 4, current: 1, reencrypted: 2, unreadable: 1 };
     const dryRun = await rotateDataEncryption(db, { keyring, apply: false, batchSize: 2 });
-    expect(dryRun).toEqual({ apply: false, ...notesCounts, byKind: { notes: notesCounts, messages: none, knowledgeGaps: none } });
+    expect(dryRun).toEqual({
+      apply: false,
+      ...notesCounts,
+      byKind: { notes: notesCounts, messages: none, assistantMemories: none, knowledgeGaps: none },
+    });
     expect(await db.auditLog.count({ where: { action: "data.encryption.rotate" } })).toBe(0);
 
     const applied = await rotateDataEncryption(db, { keyring, apply: true, batchSize: 2 });
@@ -73,7 +77,7 @@ describe("rotação da DATA_ENCRYPTION_KEY", () => {
     expect(await db.auditLog.count({ where: { action: "data.encryption.rotate" } })).toBe(1);
   });
 
-  it("recifra também as mensagens do WhatsApp e as perguntas de curadoria, que usam a mesma chave", async () => {
+  it("recifra também as mensagens do WhatsApp, as notas do assistente e as perguntas de curadoria, que usam a mesma chave", async () => {
     const oldKey = testEncryptionKey();
     const newKey = testEncryptionKey();
     const strangerKey = testEncryptionKey();
@@ -94,6 +98,12 @@ describe("rotação da DATA_ENCRYPTION_KEY", () => {
     // Chave desconhecida: preservada intacta e contada como ilegível.
     const orphan = await message(sealText("Chave perdida", context, onlyKey(strangerKey)));
     await recordKnowledgeGap(db, onlyKey(oldKey), { question: "Vocês atendem aos sábados?", reason: "NO_ANSWER", conversationId: conversation.id });
+    // Notas da IA generativa sobre a conversa (contexto próprio) e uma conversa com notas em texto puro.
+    await db.whatsAppConversation.update({
+      where: { id: conversation.id },
+      data: { assistantMemory: sealText("Interesse: botox; prefere tardes", memoryContext(conversation.id), onlyKey(oldKey)) },
+    });
+    await db.whatsAppConversation.create({ data: { contactPhone: uniquePhone(), assistantMemory: "Notas sem cifragem" } });
     // Lotes de 1: o cursor precisa avançar mesmo pelas linhas ignoradas.
     const keyring = { current: newKey, previous: [oldKey] };
 
@@ -101,12 +111,13 @@ describe("rotação da DATA_ENCRYPTION_KEY", () => {
     expect(dryRun.byKind).toEqual({
       notes: none,
       messages: { total: 3, current: 1, reencrypted: 1, unreadable: 1 },
+      assistantMemories: { total: 1, current: 0, reencrypted: 1, unreadable: 0 },
       knowledgeGaps: { total: 1, current: 0, reencrypted: 1, unreadable: 0 },
     });
     expect((await db.whatsAppMessage.findUniqueOrThrow({ where: { id: old.id } })).body).toBe(old.body);
 
     const applied = await rotateDataEncryption(db, { keyring, apply: true, batchSize: 1 });
-    expect(applied).toMatchObject({ total: 4, reencrypted: 2, unreadable: 1 });
+    expect(applied).toMatchObject({ total: 5, reencrypted: 3, unreadable: 1 });
 
     // Só a chave nova: tudo o que era legível continua legível.
     const newOnly = onlyKey(newKey);
@@ -123,7 +134,18 @@ describe("rotação da DATA_ENCRYPTION_KEY", () => {
     expect(readGapQuestion(gap.question, newOnly)).toBe("Vocês atendem aos sábados?");
     expect(() => decryptField(gap.question, newKey, KNOWLEDGE_GAP_CONTEXT)).not.toThrow();
 
+    const memory = (await db.whatsAppConversation.findUniqueOrThrow({ where: { id: conversation.id } })).assistantMemory;
+    expect(openText(memory, memoryContext(conversation.id), newOnly)).toBe("Interesse: botox; prefere tardes");
+    expect(await db.whatsAppConversation.count({ where: { assistantMemory: "Notas sem cifragem" } })).toBe(1);
+
     const audit = await db.auditLog.findFirstOrThrow({ where: { action: "data.encryption.rotate" } });
-    expect(audit.metadata).toMatchObject({ reencrypted: 2, unreadable: 1, patientRecords: 0, whatsappMessages: 1, curationQuestions: 1 });
+    expect(audit.metadata).toMatchObject({
+      reencrypted: 3,
+      unreadable: 1,
+      patientRecords: 0,
+      whatsappMessages: 1,
+      assistantMemories: 1,
+      curationQuestions: 1,
+    });
   });
 });

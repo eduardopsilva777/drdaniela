@@ -56,14 +56,14 @@ export default function WhatsAppPage(props: PageProps<"/whatsapp">) {
 function IntegrationBanner({ status, engine }: { status: WhatsAppIntegrationStatus; engine: AssistantEngineStatus }) {
   const Icon = status.provider === "cloud_api" ? ShieldCheck : status.provider === "development" ? FlaskConical : ShieldAlert;
   const iconColor =
-    status.provider === "cloud_api" ? "text-sage" : status.provider === "development" ? "text-lavender" : "text-champagne";
+    status.provider === "cloud_api" ? "text-success" : status.provider === "development" ? "text-info" : "text-warning";
   return (
     <Panel
       role="status"
       className={cn(
         "mb-6 flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:justify-between",
-        status.provider === "development" && "border-lavender/35 bg-lavender/[0.04]",
-        status.provider === "disabled" && "border-champagne/35",
+        status.provider === "development" && "border-info/35 bg-info/[0.04]",
+        status.provider === "disabled" && "border-warning/35",
       )}
     >
       <div className="flex min-w-0 items-start gap-4">
@@ -71,7 +71,7 @@ function IntegrationBanner({ status, engine }: { status: WhatsAppIntegrationStat
         <div className="min-w-0 space-y-1">
           <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-foreground">
             {status.title}
-            {status.provider === "development" ? <StatusBadge tone="lavender" label="Nada é enviado aos contatos" /> : null}
+            {status.provider === "development" ? <StatusBadge tone="info" label="Nada é enviado aos contatos" /> : null}
           </p>
           <p className="text-sm text-muted-foreground">{status.description}</p>
           {status.provider !== "development" ? (
@@ -84,7 +84,7 @@ function IntegrationBanner({ status, engine }: { status: WhatsAppIntegrationStat
         <div className="space-y-1">
           <p className="text-sm font-medium text-foreground">{engine.title}</p>
           <p className="text-xs text-muted-foreground">{engine.description}</p>
-          <Link href="/assistente" className="text-xs text-rose underline-offset-4 hover:underline">
+          <Link href="/assistente" className="text-xs text-primary underline-offset-4 hover:underline">
             Base de conhecimento e configurações
           </Link>
         </div>
@@ -136,7 +136,7 @@ async function WhatsAppContent({ searchParams }: { searchParams: SearchParams })
             />
           </div>
           {counts.waiting > 0 ? (
-            <p className="flex items-center gap-1.5 text-xs text-rose">
+            <p className="flex items-center gap-1.5 text-xs text-primary">
               <Hand aria-hidden className="size-3.5" />
               {counts.waiting} conversa(s) aguardando a equipe —{" "}
               <Link href="/tarefas" className="underline-offset-4 hover:underline">
@@ -221,7 +221,7 @@ function ConversationList({
                     <span className={item.mode === "HUMAN" ? "text-foreground/80" : undefined}>
                       {item.mode === "HUMAN" ? "Equipe" : "Assistente"}
                     </span>
-                    {item.optedOutAt ? <span className="text-brick">· descadastrado</span> : null}
+                    {item.optedOutAt ? <span className="text-destructive">· descadastrado</span> : null}
                   </p>
                   {last ? (
                     <p className="mt-0.5 truncate text-[0.8125rem] text-foreground/75">
@@ -233,13 +233,13 @@ function ConversationList({
                 <div className="flex shrink-0 flex-col items-end gap-1">
                   {item.unreadCount > 0 ? (
                     <span
-                      className="mt-0.5 flex min-w-5 items-center justify-center rounded-full bg-rose px-1.5 text-[0.6875rem] font-medium text-primary-foreground tabular-nums"
+                      className="mt-0.5 flex min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[0.6875rem] font-medium text-primary-foreground tabular-nums"
                       aria-label={`${item.unreadCount} não lida(s)`}
                     >
                       {item.unreadCount}
                     </span>
                   ) : null}
-                  {item.awaitingTeam ? <Hand aria-label="Aguardando a equipe" className="size-3.5 text-rose" /> : null}
+                  {item.awaitingTeam ? <Hand aria-label="Aguardando a equipe" className="size-3.5 text-primary" /> : null}
                 </div>
               </Link>
             </li>
@@ -299,20 +299,20 @@ async function ConversationPanel({
               <ArrowLeft aria-hidden className="size-3.5" />
               Conversas
             </Link>
-            <h2 className="truncate text-base font-medium text-foreground">{name}</h2>
+            <h2 className="truncate text-title-3 text-foreground">{name}</h2>
             <p className="text-xs text-muted-foreground tabular-nums">
               {formatPhone(conversation.contactPhone)}
               {conversation.patient ? (
                 <>
                   {" · "}
-                  <Link href={`/pacientes/${conversation.patient.id}`} className="text-rose underline-offset-4 hover:underline">
+                  <Link href={`/pacientes/${conversation.patient.id}`} className="text-primary underline-offset-4 hover:underline">
                     ficha do paciente
                   </Link>
                 </>
               ) : conversation.lead ? (
                 <>
                   {" · "}
-                  <Link href={`/leads/${conversation.lead.id}`} className="text-rose underline-offset-4 hover:underline">
+                  <Link href={`/leads/${conversation.lead.id}`} className="text-primary underline-offset-4 hover:underline">
                     lead
                   </Link>
                 </>
@@ -329,7 +329,7 @@ async function ConversationPanel({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <StatusBadge
-              tone={windowOpen ? "sage" : "muted"}
+              tone={windowOpen ? "success" : "muted"}
               label={
                 windowOpen && conversation.lastInboundAt
                   ? `Janela aberta até ${formatShortDateTime(new Date(conversation.lastInboundAt.getTime() + SERVICE_WINDOW_MS), timeZone)}`
@@ -344,7 +344,7 @@ async function ConversationPanel({
           {hasPermission(user.role, "whatsapp:erase") ? <EraseConversationButton conversationId={conversation.id} /> : null}
         </div>
         {conversation.mode === "HUMAN" && conversation.handoffReason ? (
-          <p className="rounded-lg bg-rose/[0.07] px-3 py-2 text-xs text-foreground/85">
+          <p className="rounded-lg bg-primary/[0.07] px-3 py-2 text-xs text-foreground/85">
             <span className="font-medium">Com a equipe</span>
             {conversation.handoffAt ? ` desde ${formatShortDateTime(conversation.handoffAt, timeZone)}` : ""}: {conversation.handoffReason}
           </p>
@@ -353,9 +353,9 @@ async function ConversationPanel({
           <ul className="space-y-1">
             {conversation.tasks.map((task) => (
               <li key={task.id} className="flex flex-wrap items-center gap-2 text-xs">
-                <StatusBadge tone={task.urgent ? "brick" : "champagne"} label={task.urgent ? "Urgente" : TASK_KIND_LABELS[task.kind]} />
+                <StatusBadge tone={task.urgent ? "danger" : "warning"} label={task.urgent ? "Urgente" : TASK_KIND_LABELS[task.kind]} />
                 <span className="text-foreground/85">{task.title}</span>
-                <Link href="/tarefas" className="text-rose underline-offset-4 hover:underline">
+                <Link href="/tarefas" className="text-primary underline-offset-4 hover:underline">
                   tarefas
                 </Link>
               </li>
@@ -376,14 +376,14 @@ async function ConversationPanel({
                 <div
                   className={cn(
                     "max-w-[85%] rounded-2xl px-4 py-2.5 text-sm",
-                    outbound ? "rounded-br-md bg-rose/12" : "rounded-bl-md bg-surface-raised",
-                    automated && "bg-lavender/[0.10]",
-                    message.status === "SIMULATED" && "border border-dashed border-lavender/50",
-                    message.status === "FAILED" && "border border-brick/40",
+                    outbound ? "rounded-br-md bg-primary-subtle" : "rounded-bl-md bg-muted",
+                    automated && "bg-info-subtle",
+                    message.status === "SIMULATED" && "border border-dashed border-info/50",
+                    message.status === "FAILED" && "border border-destructive/40",
                   )}
                 >
                   {automated ? (
-                    <p className="mb-1 text-[0.6875rem] font-medium text-lavender">
+                    <p className="mb-1 text-[0.6875rem] font-medium text-info">
                       {MESSAGE_ORIGIN_LABELS[message.origin]}
                       {message.templateName ? ` · modelo ${message.templateName}` : ""}
                     </p>
@@ -409,7 +409,7 @@ async function ConversationPanel({
                     </div>
                   ) : null}
                   {message.status === "FAILED" && message.errorMessage ? (
-                    <p className="mt-1 text-xs text-brick">{message.errorMessage}</p>
+                    <p className="mt-1 text-xs text-destructive">{message.errorMessage}</p>
                   ) : null}
                 </div>
               </li>

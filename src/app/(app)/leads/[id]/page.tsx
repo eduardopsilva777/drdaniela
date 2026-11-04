@@ -59,8 +59,8 @@ function DetailFallback() {
     <div className="space-y-6" aria-hidden>
       <Skeleton className="h-10 w-80 max-w-full" />
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-        <Skeleton className="h-96 rounded-2xl" />
-        <Skeleton className="h-96 rounded-2xl" />
+        <Skeleton className="h-96 rounded-xl" />
+        <Skeleton className="h-96 rounded-xl" />
       </div>
     </div>
   );
@@ -173,14 +173,14 @@ async function LeadDetailView({ params }: { params: PageProps<"/leads/[id]">["pa
         <div className="flex min-w-0 flex-col gap-6">
           {canWrite ? (
             <Panel aria-labelledby="registrar-titulo" className="p-6">
-              <h2 id="registrar-titulo" className="mb-4 text-base font-medium text-foreground">
+              <h2 id="registrar-titulo" className="mb-4 text-title-3 text-foreground">
                 Registrar interação
               </h2>
               <InteractionForm action={addLeadInteractionAction.bind(null, lead.id)} />
             </Panel>
           ) : null}
           <Panel aria-labelledby="historico-titulo" className="p-6">
-            <h2 id="historico-titulo" className="mb-5 text-base font-medium text-foreground">
+            <h2 id="historico-titulo" className="mb-5 text-title-3 text-foreground">
               Histórico
             </h2>
             <InteractionTimeline
@@ -201,13 +201,13 @@ async function LeadDetailView({ params }: { params: PageProps<"/leads/[id]">["pa
 
         <div className="flex min-w-0 flex-col gap-6">
           <Panel aria-labelledby="dados-titulo" className="p-6">
-            <h2 id="dados-titulo" className="text-base font-medium text-foreground">
+            <h2 id="dados-titulo" className="text-title-3 text-foreground">
               Dados do lead
             </h2>
             <dl className="mt-4 space-y-3.5 text-sm">
               <Detail label="Próxima ação">
                 {due ? (
-                  <span className={cn(due.overdue && "text-brick")}>
+                  <span className={cn(due.overdue && "text-destructive")}>
                     {due.label}
                     {lead.nextActionNote ? <span className="block text-muted-foreground">{lead.nextActionNote}</span> : null}
                   </span>
@@ -233,12 +233,12 @@ async function LeadDetailView({ params }: { params: PageProps<"/leads/[id]">["pa
               </Detail>
               {lead.status === "LOST" && lead.lostReason ? (
                 <Detail label="Motivo da perda">
-                  <span className="text-brick">{lead.lostReason}</span>
+                  <span className="text-destructive">{lead.lostReason}</span>
                 </Detail>
               ) : null}
               {lead.patient ? (
                 <Detail label="Paciente">
-                  <Link href={`/pacientes/${lead.patient.id}`} className="text-rose underline-offset-4 hover:underline">
+                  <Link href={`/pacientes/${lead.patient.id}`} className="text-primary underline-offset-4 hover:underline">
                     {lead.patient.fullName}
                   </Link>
                 </Detail>
@@ -254,7 +254,7 @@ async function LeadDetailView({ params }: { params: PageProps<"/leads/[id]">["pa
           </Panel>
 
           <Panel aria-labelledby="agenda-titulo" className="p-6">
-            <h2 id="agenda-titulo" className="text-base font-medium text-foreground">
+            <h2 id="agenda-titulo" className="text-title-3 text-foreground">
               Agendamentos
             </h2>
             {lead.appointments.length === 0 ? (

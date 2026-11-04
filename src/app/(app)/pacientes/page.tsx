@@ -139,7 +139,7 @@ async function PatientTable({ searchParams }: { searchParams: PageProps<"/pacien
                 </TableCell>
                 <TableCell className="text-muted-foreground">{patient.whatsappOptIn ? "Autorizado" : "Sem autorização"}</TableCell>
                 <TableCell className="pr-6">
-                  <StatusBadge tone={patient.isActive ? "sage" : "muted"} label={patient.isActive ? "Ativo" : "Inativo"} />
+                  <StatusBadge tone={patient.isActive ? "success" : "muted"} label={patient.isActive ? "Ativo" : "Inativo"} />
                 </TableCell>
               </TableRow>
             ))}

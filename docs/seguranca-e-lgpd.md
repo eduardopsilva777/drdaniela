@@ -87,6 +87,16 @@ Não são apagados automaticamente: auditoria (somente inserção — a retenç�
 - No desenvolvimento, o registro de argumentos das Server Actions no terminal está desligado.
 - Backups do banco e da `DATA_ENCRYPTION_KEY` (guardados separadamente) são responsabilidade da hospedagem.
 
+## Assistente virtual e IA
+
+- **Provedor de IA desligado por padrão** (`AI_PROVIDER=disabled` em produção). Com `anthropic`, só vai ao provedor o contexto mínimo do contato (primeiro nome, etapa, interesse, consentimentos, datas de agendamentos e retornos), as entradas aprovadas da base, as notas da conversa e o histórico recente — com telefone, e-mail e CPF mascarados. **Nunca**: observações, prontuário, procedimentos realizados, dados de outros contatos. Transferência internacional exige contrato e base legal (art. 33).
+- **O modelo não acessa o banco**: pede ferramentas de uma lista fechada, com argumentos validados e regras do CRM aplicadas pelo servidor; referências curtas (A1, S1, R1) impedem alcançar dados de outra pessoa.
+- **Ações importantes com confirmação explícita** conferida pelo servidor; a resposta não pode afirmar o que não foi gravado.
+- **Checagem das respostas**: valores, percentuais, telefones e links só com fonte; sem promessa de resultado; sem se passar pela profissional; dúvidas de saúde e urgências vão para a equipe.
+- **Manipulação (prompt injection)**: o texto do contato vai marcado como dado; pedidos para ignorar regras não liberam ações (as regras estão no servidor).
+- **Notas da conversa cifradas**, incluídas na exportação do titular, no apagamento da conversa e na rotação de chave. Registros de execução sem conteúdo.
+- **Sem treinamento** de modelos com conversas; melhoria só por curadoria humana da base aprovada.
+
 ## Pendências de segurança/LGPD
 
 - **Anonimização** de pacientes e prazos de retenção de dados pessoais — dependem de definição jurídica.

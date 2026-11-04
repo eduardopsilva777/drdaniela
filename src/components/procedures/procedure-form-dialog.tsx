@@ -175,7 +175,7 @@ export function ProcedureFormDialog({
                 aria-pressed={color === ""}
                 className={cn(
                   "h-8 rounded-full border border-border px-3 text-xs text-muted-foreground transition-colors",
-                  color === "" && "border-rose/60 text-foreground",
+                  color === "" && "border-primary/60 text-foreground",
                 )}
               >
                 Sem cor

@@ -80,7 +80,7 @@ function Section({
   return (
     <Panel aria-labelledby={id} className={cn("p-6", className)}>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 id={id} className="text-base font-medium text-foreground">
+        <h2 id={id} className="text-title-3 text-foreground">
           {title}
         </h2>
         {action}
@@ -157,7 +157,7 @@ export async function SummaryTab({ context }: { context: TabContext }) {
                   <li key={item.id} className="flex items-start justify-between gap-3 text-sm">
                     <div className="min-w-0">
                       <p className="text-foreground">{item.title}</p>
-                      <p className={cn("text-xs tabular-nums", pending && due.overdue ? "text-brick" : "text-muted-foreground")}>
+                      <p className={cn("text-xs tabular-nums", pending && due.overdue ? "text-destructive" : "text-muted-foreground")}>
                         Previsto para {formatKeyDate(dueKey)}
                         {pending ? ` · ${due.label}` : ""}
                       </p>
@@ -168,7 +168,7 @@ export async function SummaryTab({ context }: { context: TabContext }) {
               })}
             </ul>
           )}
-          <Link href={`/pacientes/${patient.id}?aba=protocolos`} className="mt-4 inline-block text-sm text-rose underline-offset-4 hover:underline">
+          <Link href={`/pacientes/${patient.id}?aba=protocolos`} className="mt-4 inline-block text-sm text-primary underline-offset-4 hover:underline">
             Ver protocolos e retornos
           </Link>
         </Section>
@@ -212,7 +212,7 @@ export async function SummaryTab({ context }: { context: TabContext }) {
             {consents.map((consent) => (
               <li key={consent.label} className="flex items-start justify-between gap-3">
                 <span className="text-foreground">{consent.label}</span>
-                <span className={cn("text-right text-xs tabular-nums", consent.granted ? "text-sage" : "text-muted-foreground")}>
+                <span className={cn("text-right text-xs tabular-nums", consent.granted ? "text-success" : "text-muted-foreground")}>
                   {consent.granted ? "Autorizado" : "Não autorizado"}
                   {consent.at ? <span className="block text-muted-foreground">em {formatShortDateTime(consent.at, timeZone)}</span> : null}
                 </span>
@@ -237,7 +237,7 @@ export async function SummaryTab({ context }: { context: TabContext }) {
               </Detail>
             </dl>
             {hasPermission(context.user.role, "leads:read") ? (
-              <Link href={`/leads/${patient.lead.id}`} className="mt-4 inline-block text-sm text-rose underline-offset-4 hover:underline">
+              <Link href={`/leads/${patient.lead.id}`} className="mt-4 inline-block text-sm text-primary underline-offset-4 hover:underline">
                 Abrir histórico do lead
               </Link>
             ) : null}
@@ -293,7 +293,7 @@ export async function AgendaTab({ context }: { context: TabContext }) {
                 <p className="text-xs text-muted-foreground">
                   {item.procedure?.name ?? "Avaliação"} com {item.professional.name}
                 </p>
-                {item.cancellationReason ? <p className="text-xs text-brick">Motivo: {item.cancellationReason}</p> : null}
+                {item.cancellationReason ? <p className="text-xs text-destructive">Motivo: {item.cancellationReason}</p> : null}
               </div>
               <StatusBadge tone={APPOINTMENT_STATUS_TONES[item.status]} label={APPOINTMENT_STATUS_LABELS[item.status]} />
             </li>
@@ -398,7 +398,7 @@ export async function ProtocolsTab({ context }: { context: TabContext }) {
                 {item.title}
                 <span className="text-muted-foreground"> · {RETURN_KIND_LABELS[item.kind]}</span>
               </p>
-              <p className={cn("text-xs tabular-nums", open && due.overdue ? "text-brick" : "text-muted-foreground")}>
+              <p className={cn("text-xs tabular-nums", open && due.overdue ? "text-destructive" : "text-muted-foreground")}>
                 Previsto para {formatKeyDate(row.dueKey)}
                 {open ? ` · ${due.label}` : ""}
                 {item.appointment ? ` · agendado para ${formatDateTime(item.appointment.startsAt, timeZone)}` : ""}
@@ -495,7 +495,7 @@ export async function ProtocolsTab({ context }: { context: TabContext }) {
 
       <Section title="Lembretes">
         {!patient.whatsappOptIn ? (
-          <p className="mb-3 text-sm text-champagne">
+          <p className="mb-3 text-sm text-warning">
             Sem autorização para WhatsApp: lembretes não são criados para este paciente.
           </p>
         ) : null}
@@ -522,7 +522,7 @@ export async function ProtocolsTab({ context }: { context: TabContext }) {
                 </div>
                 <div className="flex items-center gap-2">
                   <StatusBadge
-                    tone={reminder.simulated ? "lavender" : REMINDER_STATUS_TONES[reminder.status]}
+                    tone={reminder.simulated ? "info" : REMINDER_STATUS_TONES[reminder.status]}
                     label={reminder.simulated && reminder.status === "SENT" ? "Simulado" : REMINDER_STATUS_LABELS[reminder.status]}
                   />
                   {canWriteReturns ? <ReminderActions reminderId={reminder.id} status={reminder.status} /> : null}
@@ -558,7 +558,7 @@ export async function MessagesTab({ context }: { context: TabContext }) {
               <div
                 className={cn(
                   "max-w-[85%] rounded-2xl px-4 py-2.5 text-sm",
-                  message.direction === "OUTBOUND" ? "bg-rose/12 text-foreground" : "bg-surface-raised text-foreground",
+                  message.direction === "OUTBOUND" ? "bg-primary-subtle text-foreground" : "bg-muted text-foreground",
                 )}
               >
                 <p className="whitespace-pre-line">{message.body ?? "[conteúdo apagado]"}</p>
@@ -620,7 +620,7 @@ export async function NotesTab({ context }: { context: TabContext }) {
     return (
       <Panel role="alert" className="p-6">
         <p className="flex items-center gap-2 text-sm font-medium text-foreground">
-          <Lock aria-hidden className="size-4 text-champagne" />
+          <Lock aria-hidden className="size-4 text-warning" />
           Observações indisponíveis
         </p>
         <p className="mt-1.5 max-w-[60ch] text-sm text-muted-foreground">

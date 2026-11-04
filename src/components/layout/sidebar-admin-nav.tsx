@@ -20,7 +20,7 @@ export async function SidebarAdminNav() {
 
   return (
     <SidebarGroup className="px-3 py-1">
-      <SidebarGroupLabel className="px-3 text-xs font-normal text-sidebar-foreground/45">
+      <SidebarGroupLabel className="px-2.5 text-overline text-muted-foreground uppercase">
         Gestão
       </SidebarGroupLabel>
       <SidebarGroupContent>

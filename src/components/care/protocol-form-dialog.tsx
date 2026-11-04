@@ -214,7 +214,7 @@ export function ProtocolFormDialog({
 
           <fieldset className="space-y-3">
             <legend className="mb-1 text-[0.8125rem] font-medium">Etapas e intervalos</legend>
-            {stepsError ? <p className="text-xs text-brick">{stepsError}</p> : null}
+            {stepsError ? <p className="text-xs text-destructive">{stepsError}</p> : null}
             <ol className="space-y-3">
               {steps.map((step, index) => (
                 <li key={index} className="rounded-xl border border-border p-3">
@@ -303,7 +303,7 @@ export function ProtocolFormDialog({
               para quem autorizou; sem autorização, viram tarefa para a equipe. O convite é para agendar uma avaliação — a
               decisão clínica é da profissional. Mudanças valem para os próximos retornos programados.
             </p>
-            {rulesError ? <p className="text-xs text-brick">{rulesError}</p> : null}
+            {rulesError ? <p className="text-xs text-destructive">{rulesError}</p> : null}
             <ol className="space-y-3">
               {rules.map((rule, index) => (
                 <li key={index} className="space-y-3 rounded-xl border border-border p-3">

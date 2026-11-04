@@ -12,7 +12,8 @@ import { emptyInterpretation, INFORMATIONAL_INTENTS, type AssistantModel, type I
 
 const URGENT = /\b(urgente|urgencia|emergencia|falta de ar|nao consigo respirar|desmai\w*|sangrando muito|sangramento|muita dor|dor forte|dor muito forte|inchaco forte|muito inchad\w*|febre alta|febre|perdi a visao|visao turva|necrose|pus|infeccionou|infeccao)\b/;
 
-const CLINICAL = /\b(dor|doi|doendo|alergi\w*|inchad\w*|inchaco|roxo|roxa|hematoma|vermelh\w*|coceira|remedio|medicamento|antibiotico|anticoncepcional|gravida|gestante|gravidez|amamentando|amamentacao|lactante|efeito colateral|efeitos colaterais|reacao|reacoes|cicatriz\w*|herpes|diabet\w*|pressao alta|hipertens\w*|anticoagulante|posso tomar|posso beber|posso fazer (mesmo|estando|tomando|gravida|com)|contraindica\w*|diagnostico|receita|indicad[oa] para mim|qual (tratamento|procedimento) (e|seria) (melhor|ideal|indicado) para (mim|o meu|a minha))\b/;
+/** Pergunta de saúde/conduta (usado também como sinal para a IA generativa). */
+export const CLINICAL = /\b(dor|doi|doendo|alergi\w*|inchad\w*|inchaco|roxo|roxa|hematoma|vermelh\w*|coceira|remedio|medicamento|antibiotico|anticoncepcional|gravida|gestante|gravidez|amamentando|amamentacao|lactante|efeito colateral|efeitos colaterais|reacao|reacoes|cicatriz\w*|herpes|diabet\w*|pressao alta|hipertens\w*|anticoagulante|posso tomar|posso beber|posso fazer (mesmo|estando|tomando|gravida|com)|contraindica\w*|diagnostico|receita|indicad[oa] para mim|qual (tratamento|procedimento) (e|seria) (melhor|ideal|indicado) para (mim|o meu|a minha))\b/;
 
 const HUMAN = /\b(atendente|humano|humana|falar com (uma |um |a |o )?(pessoa|alguem|atendente|recepcao|recepcionista|secretaria|equipe|doutora|dra|daniela)|pessoa de verdade|recepcao|recepcionista|secretaria)\b/;
 

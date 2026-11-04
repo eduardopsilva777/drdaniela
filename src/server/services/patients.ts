@@ -6,7 +6,7 @@ import { dateKeyToDbDate } from "@/lib/datetime";
 import type { InteractionInput } from "@/lib/validation/leads";
 import type { PatientInput, PatientNoteInput } from "@/lib/validation/patients";
 import { recordAudit } from "@/server/audit";
-import { openMessageBodies } from "@/server/crypto/content-cipher";
+import { memoryContext, openMessageBodies, openText } from "@/server/crypto/content-cipher";
 import { decryptWithKeyring, encryptField, noteContext, toKeyring, type Keyring } from "@/server/crypto/field-encryption";
 import type { DbClient, DbExecutor } from "@/server/db/prisma";
 import { DomainError, NotFoundError } from "@/server/errors";
@@ -328,7 +328,14 @@ export async function exportPatientData(db: DbClient, actor: Actor, patientId: s
       procedureRecords: { orderBy: { performedAt: "asc" }, select: { performedAt: true, notes: true, procedure: { select: { name: true } } } },
       protocols: { select: { startedOn: true, status: true, notes: true, protocol: { select: { name: true } } } },
       returns: { orderBy: { dueDate: "asc" }, select: { title: true, dueDate: true, status: true, notes: true } },
-      conversations: { select: { id: true, contactPhone: true, messages: { orderBy: { createdAt: "asc" }, select: { direction: true, body: true, status: true, createdAt: true } } } },
+      conversations: {
+        select: {
+          id: true,
+          contactPhone: true,
+          assistantMemory: true,
+          messages: { orderBy: { createdAt: "asc" }, select: { direction: true, body: true, status: true, createdAt: true } },
+        },
+      },
       notes: { orderBy: { createdAt: "asc" }, select: { visibility: true, content: true, createdAt: true } },
     },
   });
@@ -344,8 +351,10 @@ export async function exportPatientData(db: DbClient, actor: Actor, patientId: s
     patient: {
       ...rest,
       // O texto das mensagens é gravado cifrado (contexto: a conversa).
-      conversations: conversations.map(({ id, messages, ...conversation }) => ({
+      conversations: conversations.map(({ id, messages, assistantMemory, ...conversation }) => ({
         ...conversation,
+        // Notas que o assistente mantém sobre a conversa (dado pessoal derivado).
+        assistantNotes: openText(assistantMemory, memoryContext(id), keyring),
         messages: openMessageBodies(id, messages, keyring),
       })),
       notes: notes.map((note) => {

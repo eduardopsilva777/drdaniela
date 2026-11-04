@@ -34,6 +34,8 @@ Meta ──► /api/webhooks/whatsapp ── assinatura → deduplicação → m
 - `development` (padrão fora de produção, **proibido em produção** pela validação do ambiente).
 - `cloud_api`: exige `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_APP_SECRET` e `WHATSAPP_WEBHOOK_VERIFY_TOKEN` — o servidor não sobe sem elas.
 
+O atendimento automático (motores por regras, guiado e IA conversacional), as ferramentas do CRM usadas pela IA, a transferência para a equipe e os acompanhamentos dentro da janela estão em [assistente-ia.md](assistente-ia.md).
+
 ## Regras do WhatsApp aplicadas
 
 - **Janela de 24 horas:** mensagens livres só até 24 h depois da última mensagem do contato. Fora dela, o envio é bloqueado com explicação; só **modelos aprovados** (usados pelos lembretes) podem ser enviados.

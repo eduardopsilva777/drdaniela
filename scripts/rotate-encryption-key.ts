@@ -1,6 +1,7 @@
 /**
  * Rotação da DATA_ENCRYPTION_KEY: recifra observações dos pacientes, mensagens
- * do WhatsApp e perguntas de curadoria (tudo o que essa chave protege).
+ * do WhatsApp, notas do assistente e perguntas de curadoria (tudo o que essa
+ * chave protege).
  *
  * Pré-requisito: DATA_ENCRYPTION_KEY = chave NOVA e DATA_ENCRYPTION_KEY_PREVIOUS
  * = chave ANTIGA (no ambiente em que o script roda). Por padrão apenas SIMULA.
@@ -44,6 +45,7 @@ async function main() {
     console.log(`\nRotação da DATA_ENCRYPTION_KEY — ${report.apply ? "EXECUTADA" : "simulação (use --apply para executar)"}\n`);
     console.log(describe("Observações dos pacientes", report.byKind.notes, report.apply));
     console.log(describe("Mensagens do WhatsApp", report.byKind.messages, report.apply));
+    console.log(describe("Notas do assistente", report.byKind.assistantMemories, report.apply));
     console.log(describe("Perguntas de curadoria", report.byKind.knowledgeGaps, report.apply));
     console.log(
       `\n  Total: ${report.total} cifrado(s), ${report.reencrypted} ${report.apply ? "recifrado(s)" : "a recifrar"}, ${report.unreadable} ilegível(is)\n`,
